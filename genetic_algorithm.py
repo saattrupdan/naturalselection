@@ -1,5 +1,4 @@
 import numpy as np
-import itertools
 from tqdm import tqdm
 
 class Genus():
