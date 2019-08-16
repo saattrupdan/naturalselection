@@ -7,10 +7,10 @@ class Genus():
         self.dna_range = dna_range
 
     def create_organisms(self, amount = 1):
-        orgs = [Organism(genus = self, dna =
+        organisms = [Organism(genus = self, dna =
             {key : np.random.choice(self.dna_range[key])
             for key in self.dna_range.keys()}) for i in range(amount)]
-        return np.array(orgs)
+        return np.array(organisms)
 
     def create_genus(self, add = None, remove = None):
         dna_range = np.append(np.array([param for param in self.dna_range
@@ -50,10 +50,11 @@ class Population():
         self.population = self.genus.create_organisms(self.size)
 
     def get_fittest(self, top_n = 1):
-        fitnesses = np.array([self.fitness_fn(org) for org in self.population])
+        fitnesses = np.array([self.fitness_fn(organism)
+                              for organism in self.population])
         fittest_idx = np.argpartition(fitnesses, -top_n)[-top_n:]
-        fittest_orgs = self.population[fittest_idx]
-        return fittest_orgs[0] if top_n == 1 else fittest_orgs
+        fittest_organisms = self.population[fittest_idx]
+        return fittest_organisms
 
     def evolve(self, generations = 1, keep = 0.30, mutate = 0.10):
         for generation in tqdm(range(generations)):
@@ -64,9 +65,9 @@ class Population():
             # breed until we reach the same size
             remaining = self.size - keep_amount
             for i in range(remaining):
-                orgs = np.random.choice(self.population, 2)
-                new_org = orgs[0].breed(orgs[1])
-                self.population = np.append(self.population, new_org)
+                organisms = np.random.choice(self.population, 2)
+                new_organism = organisms[0].breed(organisms[1])
+                self.population = np.append(self.population, new_organism)
 
             # mutate randomly
             mutate_amount = np.ceil(self.size * mutate).astype(int)
@@ -81,4 +82,4 @@ if __name__ == '__main__':
     fn = lambda number: number.dna['val']
     numbers = Population(genus = Number, size = 3, fitness_fn = fn)
     numbers.evolve(generations = 500)
-    print(numbers.get_fittest().dna['val'])
+    print(numbers.get_fittest()[0].dna['val'])
