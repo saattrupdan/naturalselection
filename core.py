@@ -32,12 +32,11 @@ class Genus():
 
     def create_organisms(self, amount: int = 1):
         ''' Create organisms of this genus. '''
-        amount_range = trange(amount)
-        amount_range.set_description("Creating organisms...")
-        organisms = [Organism(genus = self, genome =
+        print("Creating organisms...", end = "\r")
+        organisms = np.array([Organism(genus = self, genome =
             {key : np.random.choice(self.genomes[key])
-            for key in self.genomes.keys()}) for i in amount_range]
-        return np.array(organisms)
+            for key in self.genomes.keys()}) for i in range(amount)])
+        return organisms
 
     def create_genus(self, add = None, remove = None):
         ''' Create copy of this genus with possible modifications. '''
@@ -70,17 +69,19 @@ class Organism():
         return Organism(self.genus, child_genome)
 
     def mutate(self):
-        ''' Mutate the organism by changing the value of a random gene. '''
+        ''' Mutate the organism, changing on average one gene. '''
         keys = np.array([*self.genus.genomes])
-        random_key = np.random.choice(keys)
-        random_val = np.random.choice(self.genus.genomes[random_key])
-        self.genome[random_key] = random_val
+        mut_idx = np.less(np.random.random(keys.size), np.divide(1, keys.size))
+        mut_keys = keys[mut_idx]
+        mut_vals = np.array([np.random.choice(self.genus.genomes[key])
+                             for key in mut_keys])
+        self.genome[mut_keys] = mut_vals
         self.fitness = None
         return self
 
 class Population():
 
-    def __init__(self, genus: Genus, size: int, fitness_fn):
+    def __init__(self, genus, size, fitness_fn):
         self.genus = genus
         self.size = size
         self.population = genus.create_organisms(size)
@@ -89,32 +90,47 @@ class Population():
         # Fitness function cannot be a lambda expression
         self.fitness_fn = fitness_fn
 
-    def get_fit_organisms(self, amount: int = 1):
+    def get_fit_organisms(self, amount = 1, multiprocessing = True,
+        progress_bar = True):
         ''' Sample a fixed amount of organisms from the population,
             where the fitter an organism is, the more it's likely
             to be chosen. 
     
         INPUT
             (int) amount: number of fit organisms to output
+            (bool) multiprocessing: whether fitnesses should be
+                   computed in parallel
+            (bool) progress_bar: show progress bar
 
         OUTPUT
             (ndarray) fit subset of population
         '''
 
         # Get array of organisms in population with no fitness recorded
-        pop_no_fit = np.asarray([org for org in self.population
-                                 if not org.fitness])
-
-        # Compute fitness values in parallel
-        with Pool() as pool:
-            orgs_fitnesses = tqdm(zip(pop_no_fit, pool.imap(self.fitness_fn,
-                pop_no_fit)), total = pop_no_fit.size)
-            orgs_fitnesses.set_description("Computing fitness...")
-            with suppress_stdout():
-                for (org, new_fitness) in orgs_fitnesses:
+        pop = self.population
+        fn = self.fitness_fn
+        with suppress_stdout():
+            if multiprocessing:
+                # Compute fitness values in parallel
+                with Pool() as pool:
+                    if progress_bar:
+                        fit_iter = tqdm(zip(pop, pool.imap(fn, pop)),
+                            total = pop.size)
+                        fit_iter.set_description("Computing fitness")
+                    else:
+                        fit_iter = zip(pop, pool.map(fn, pop))
+                    for (org, new_fitness) in fit_iter:
+                        org.fitness = new_fitness
+            else:
+                if progress_bar:
+                    fit_iter = tqdm(zip(pop, map(fn, pop)), total = pop.size)
+                    fit_iter.set_description("Computing fitness")
+                else:
+                    fit_iter = zip(pop, map(fn, pop))
+                for (org, new_fitness) in fit_iter:
                     org.fitness = new_fitness
 
-        fitnesses = np.asarray([org.fitness for org in self.population])
+        fitnesses = np.asarray([org.fitness for org in pop])
         
         # Convert fitness values into probabilities
         probs = np.divide(fitnesses, sum(fitnesses))
@@ -123,7 +139,7 @@ class Population():
         # population and fitnesses in the same way
         sorted_idx = np.argsort(probs)[::-1]
         probs = probs[sorted_idx]
-        self.population = self.population[sorted_idx]
+        self.population = pop[sorted_idx]
 
         # Save the fittest genome with its fitness value
         self.fittest = {
@@ -133,8 +149,13 @@ class Population():
        
         # Get random numbers between 0 and 1 
         indices = np.random.rand(amount)
-        amount_range = trange(amount)
-        amount_range.set_description("Choosing fittest organisms...")
+
+        if progress_bar:
+            amount_range = trange(amount)
+            amount_range.set_description("Choosing fittest organisms")
+        else:
+            amount_range = range(amount)
+
         for i in amount_range:
             # Find the index of the fitness value whose accumulated
             # sum exceeds the value of the i'th random number.
@@ -147,42 +168,54 @@ class Population():
         # Return the organisms indexed at the indices found above
         return self.population[indices.astype(int)]
 
-    def evolve(self, generations: int = 1, keep: float = 0.20,
-        mutate: float = 0.50):
+    def evolve(self, generations = 1, keep = 0.30, mutate = 0.10,
+        multiprocessing = True, verbose = False, show_progress = 2):
         ''' Evolve the population.
 
-        INPUTS
+        INPUT
             (int) generations: number of generations to evolve
             (float) keep: percentage of population to keep each gen
             (float) mutate: percentage of population to mutate each gen
+            (bool) multiprocessing: whether fitnesses should be
+                   computed in parallel
+            (bool) verbose: verbosity mode
+            (int) show_progress: takes values 0-2, where 0 means no
+                  progress bars, 1 means only the main one, and 2 means
+                  the main one and the fitness one
         '''
     
-        print("Population evolving...")
-
         history = History()
-        for generation in trange(generations):
-            # Keep the fittest organisms of the population
+
+        if show_progress:
+            gen_iter = trange(generations)
+            gen_iter.set_description("Evolving population")
+        else:
+            gen_iter = range(generations)
+            print("Evolving population...", end = "\r")
+
+        for generation in gen_iter:
+            # Select the portion of the population that will breed
             keep_amount = max(2, np.ceil(self.size * keep).astype(int))
-            self.population = self.get_fit_organisms(keep_amount)
+            fit_organisms = self.get_fit_organisms(
+                amount = keep_amount,
+                multiprocessing = multiprocessing,
+                progress_bar = (show_progress == 2)
+                )
        
             # Breed until we reach the same size
-            remaining = trange(self.size - keep_amount)
-            remaining.set_description("Breeding...")
-            for i in remaining:
-                parents = np.random.choice(self.population, 2)
-                child = parents[0].breed(parents[1])
-                
-                # Mutate child
-                if np.random.rand() < mutate: child.mutate()
-                
-                # Add child to population
-                self.population = np.append(self.population, child)
-
+            parents = np.random.choice(fit_organisms, (self.size, 2))
+            children = np.array([parents[i, 0].breed(parents[i, 1])
+                for i in range(self.size)])
+            mutate_indices = np.less(np.random.random(self.size), mutate)
+            map(lambda child: child.mutate(), children[mutate_indices])
+            self.population = children
+            
             # Store fittest genome for this generation
             history.add_entry(*self.fittest.values())
 
-        # Print another line as there are two progress bars
-        print("")
+        # Print another line if there are two progress bars
+        if show_progress == 2:
+            print("")
 
         return history
 
@@ -194,6 +227,7 @@ class History():
         self.fittest = {'genome' : None, 'fitness' : None}
     
     def add_entry(self, genome, fitness):
+        ''' Add genome and fitness to the history. '''
         self.genomes.append(genome)
         self.fitnesses.append(fitness)
         self.fittest = {
@@ -203,6 +237,7 @@ class History():
         return self
 
     def plot(self, save_fig = None, title = 'Fitness by generation'):
+        ''' Plot the fitness values. '''
         plt.style.use("ggplot")
         plt.figure()
         plt.plot(self.fitnesses, label = "fitness")
@@ -221,8 +256,8 @@ if __name__ == '__main__':
     def fitness_fn(number):
         return number.genome['x'] / number.genome['y']
 
-    numbers = Population(genus = Number, size = 10000, fitness_fn = fitness_fn)
-    history = numbers.evolve(generations = 5)
+    numbers = Population(genus = Number, size = 1000, fitness_fn = fitness_fn)
+    history = numbers.evolve(generations = 10)
 
     print(f"Fittest genome across all generations:")
     print(history.fittest)
