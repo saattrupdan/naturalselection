@@ -5,7 +5,7 @@ import sys
 import os
 
 # Progress bar
-from tqdm import tqdm
+from tqdm import tqdm, trange
 
 # Parallelising fitness
 from multiprocessing import Pool
@@ -81,7 +81,7 @@ class Population():
         self.genus = genus
         self.size = size
         self.population = self.genus.create_organisms(self.size)
-        self.most_fit = None
+        self.fittest = None
 
         # Fitness function cannot be a lambda expression
         self.fitness_fn = fitness_fn
@@ -104,16 +104,12 @@ class Population():
 
         # Compute fitness values in parallel
         with Pool() as pool:
-            try:
-                new_fitnesses = pool.map(self.fitness_fn, pop_no_fit)
-            except:
-                raise RuntimeError('Your fitness function is not ' \
-                   'pickleable. Try defining your function using ' \
-                   '"def" rather than using lambda expressions.')
+            with suppress_stdout():
+                for (org, new_fitness) in tqdm(
+                zip(pop_no_fit, pool.imap(self.fitness_fn, pop_no_fit)),
+                total = pop_no_fit.size):
+                    org.fitness = new_fitness
 
-        # Assign the new fitness values to the population
-        for (org, new_fitness) in zip(pop_no_fit, new_fitnesses):
-            org.fitness = new_fitness
         fitnesses = np.asarray([org.fitness for org in self.population])
         
         # Convert fitness values into probabilities
@@ -125,8 +121,11 @@ class Population():
         probs = probs[sorted_idx]
         self.population = self.population[sorted_idx]
 
-        # Save the most fit genome with its fitness value
-        self.most_fit = (self.population[0].genome, fitnesses[sorted_idx[0]])
+        # Save the fittest genome with its fitness value
+        self.fittest = {
+            'genome'    : self.population[0].genome,
+            'fitness'   : fitnesses[sorted_idx[0]]
+            }
        
         # Get random numbers between 0 and 1 
         indices = np.random.rand(amount)
@@ -153,33 +152,60 @@ class Population():
         '''
     
         print("Population evolving...")
-        for generation in tqdm(range(generations)):
-            with suppress_stdout():
-                # Keep the fittest organisms of the population
-                keep_amount = max(2, np.ceil(self.size * keep).astype(int))
-                self.population = self.get_fit_organisms(keep_amount)
-           
-                # Breed until we reach the same size
-                remaining = self.size - keep_amount
-                for i in range(remaining):
-                    parents = np.random.choice(self.population, 2)
-                    child = parents[0].breed(parents[1])
-                    
-                    # Mutate child
-                    if np.random.rand() < mutate: child.mutate()
-                    
-                    # Add child to population
-                    self.population = np.append(self.population, child)
 
-        return self
+        history = {'genomes' : [], 'fitnesses' : [], 'fittest' : {}}
+        for generation in trange(generations):
+            # Keep the fittest organisms of the population
+            keep_amount = max(2, np.ceil(self.size * keep).astype(int))
+            self.population = self.get_fit_organisms(keep_amount)
+       
+            # Breed until we reach the same size
+            remaining = self.size - keep_amount
+            for i in range(remaining):
+                parents = np.random.choice(self.population, 2)
+                child = parents[0].breed(parents[1])
+                
+                # Mutate child
+                if np.random.rand() < mutate: child.mutate()
+                
+                # Add child to population
+                self.population = np.append(self.population, child)
+
+            # Store most fit organism for this generation
+            history['genomes'].append(self.fittest['genome'])
+            history['fitnesses'].append(self.fittest['fitness'])
+
+        # Save the most fit over all generations
+        fittest_idx = np.argmax(history['fitnesses'])
+        history['fittest'] = {
+            'genome' : history['genomes'][fittest_idx],
+            'fitness' : history['fitnesses'][fittest_idx]
+            }
+
+        # Print another line as there are two progress bars
+        print("")
+
+        return history
 
 
 if __name__ == '__main__':
+
+    import matplotlib.pyplot as plt
+
     Number = Genus({'x' : range(1, 10000), 'y' : range(1, 10000)})
     def fn(number):
         return number.genome['x'] / number.genome['y']
+
     numbers = Population(genus = Number, size = 20, fitness_fn = fn)
-    numbers.evolve(generations = 200)
-    print(f"Most fit organism:")
-    print(f"\tGenome: {numbers.most_fit[0]}")
-    print(f"\tFitness: {np.around(numbers.most_fit[1], 2)}")
+    history = numbers.evolve(generations = 200)
+
+    print(f"Most fit organism across all generations:")
+    print(history['fittest'])
+
+    plt.style.use("ggplot")
+    plt.figure()
+    plt.plot(history['fitnesses'], label = "fitness")
+    plt.title("Fitness by generation")
+    plt.xlabel("Generations")
+    plt.ylabel("Fitness")
+    plt.show()
