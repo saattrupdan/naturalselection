@@ -199,7 +199,7 @@ if __name__ == '__main__':
     numbers = Population(genus = Number, size = 20, fitness_fn = fn)
     history = numbers.evolve(generations = 200)
 
-    print(f"Most fit organism across all generations:")
+    print(f"Most fit genome across all generations:")
     print(history['fittest'])
 
     plt.style.use("ggplot")
