@@ -32,10 +32,11 @@ class Genus():
 
     def create_organisms(self, amount: int = 1):
         ''' Create organisms of this genus. '''
-
+        amount_range = trange(amount)
+        amount_range.set_description("Creating organisms...")
         organisms = [Organism(genus = self, genome =
             {key : np.random.choice(self.genomes[key])
-            for key in self.genomes.keys()}) for i in range(amount)]
+            for key in self.genomes.keys()}) for i in amount_range]
         return np.array(organisms)
 
     def create_genus(self, add = None, remove = None):
@@ -82,7 +83,7 @@ class Population():
     def __init__(self, genus: Genus, size: int, fitness_fn):
         self.genus = genus
         self.size = size
-        self.population = self.genus.create_organisms(self.size)
+        self.population = genus.create_organisms(size)
         self.fittest = None
 
         # Fitness function cannot be a lambda expression
@@ -106,10 +107,11 @@ class Population():
 
         # Compute fitness values in parallel
         with Pool() as pool:
+            orgs_fitnesses = tqdm(zip(pop_no_fit, pool.imap(self.fitness_fn,
+                pop_no_fit)), total = pop_no_fit.size)
+            orgs_fitnesses.set_description("Computing fitness...")
             with suppress_stdout():
-                for (org, new_fitness) in tqdm(
-                zip(pop_no_fit, pool.imap(self.fitness_fn, pop_no_fit)),
-                total = pop_no_fit.size):
+                for (org, new_fitness) in orgs_fitnesses:
                     org.fitness = new_fitness
 
         fitnesses = np.asarray([org.fitness for org in self.population])
@@ -131,7 +133,9 @@ class Population():
        
         # Get random numbers between 0 and 1 
         indices = np.random.rand(amount)
-        for i in range(amount):
+        amount_range = trange(amount)
+        amount_range.set_description("Choosing fittest organisms...")
+        for i in amount_range:
             # Find the index of the fitness value whose accumulated
             # sum exceeds the value of the i'th random number.
             fn = lambda x, y: (x[0], x[1] + y[1]) \
@@ -162,8 +166,9 @@ class Population():
             self.population = self.get_fit_organisms(keep_amount)
        
             # Breed until we reach the same size
-            remaining = self.size - keep_amount
-            for i in range(remaining):
+            remaining = trange(self.size - keep_amount)
+            remaining.set_description("Breeding...")
+            for i in remaining:
                 parents = np.random.choice(self.population, 2)
                 child = parents[0].breed(parents[1])
                 
@@ -216,8 +221,8 @@ if __name__ == '__main__':
     def fitness_fn(number):
         return number.genome['x'] / number.genome['y']
 
-    numbers = Population(genus = Number, size = 20, fitness_fn = fitness_fn)
-    history = numbers.evolve(generations = 20)
+    numbers = Population(genus = Number, size = 10000, fitness_fn = fitness_fn)
+    history = numbers.evolve(generations = 5)
 
     print(f"Fittest genome across all generations:")
     print(history.fittest)
