@@ -1,8 +1,10 @@
-# Core packages
 import numpy as np
 from functools import reduce
 import sys
 import os
+
+# Plots
+import matplotlib.pyplot as plt
 
 # Progress bar
 from tqdm import tqdm, trange
@@ -153,7 +155,7 @@ class Population():
     
         print("Population evolving...")
 
-        history = {'genomes' : [], 'fitnesses' : [], 'fittest' : {}}
+        history = History()
         for generation in trange(generations):
             # Keep the fittest organisms of the population
             keep_amount = max(2, np.ceil(self.size * keep).astype(int))
@@ -171,41 +173,52 @@ class Population():
                 # Add child to population
                 self.population = np.append(self.population, child)
 
-            # Store most fit organism for this generation
-            history['genomes'].append(self.fittest['genome'])
-            history['fitnesses'].append(self.fittest['fitness'])
-
-        # Save the most fit over all generations
-        fittest_idx = np.argmax(history['fitnesses'])
-        history['fittest'] = {
-            'genome' : history['genomes'][fittest_idx],
-            'fitness' : history['fitnesses'][fittest_idx]
-            }
+            # Store fittest genome for this generation
+            history.add_entry(*self.fittest.values())
 
         # Print another line as there are two progress bars
         print("")
 
         return history
 
+class History():
+
+    def __init__(self):
+        self.genomes = []
+        self.fitnesses = []
+        self.fittest = {'genome' : None, 'fitness' : None}
+    
+    def add_entry(self, genome, fitness):
+        self.genomes.append(genome)
+        self.fitnesses.append(fitness)
+        self.fittest = {
+            'genome' : self.genomes[np.argmax(self.fitnesses)],
+            'fitness' : max(self.fitnesses)
+            }
+        return self
+
+    def plot(self, save_fig = None, title = 'Fitness by generation'):
+        plt.style.use("ggplot")
+        plt.figure()
+        plt.plot(self.fitnesses, label = "fitness")
+        plt.title("Fitness by generation")
+        plt.xlabel("Generations")
+        plt.ylabel("Fitness")
+        if save_fig:
+            plt.save_fig(save_fig)
+        plt.show()
+        return self
+
 
 if __name__ == '__main__':
 
-    import matplotlib.pyplot as plt
-
     Number = Genus({'x' : range(1, 10000), 'y' : range(1, 10000)})
-    def fn(number):
+    def fitness_fn(number):
         return number.genome['x'] / number.genome['y']
 
-    numbers = Population(genus = Number, size = 20, fitness_fn = fn)
-    history = numbers.evolve(generations = 200)
+    numbers = Population(genus = Number, size = 20, fitness_fn = fitness_fn)
+    history = numbers.evolve(generations = 20)
 
-    print(f"Most fit genome across all generations:")
-    print(history['fittest'])
-
-    plt.style.use("ggplot")
-    plt.figure()
-    plt.plot(history['fitnesses'], label = "fitness")
-    plt.title("Fitness by generation")
-    plt.xlabel("Generations")
-    plt.ylabel("Fitness")
-    plt.show()
+    print(f"Fittest genome across all generations:")
+    print(history.fittest)
+    history.plot()
