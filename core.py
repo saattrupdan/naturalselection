@@ -108,8 +108,9 @@ class Population():
 
         # Get array of organisms in population with no fitness recorded
         pop = self.population
-        fitnesses = np.zeros(pop.size)
         fn = self.fitness_fn
+        fitnesses = np.zeros(pop.size)
+        progress_text = "Computing fitness for the current generation"
         with suppress_stdout():
             if multiprocessing:
                 # Compute fitness values in parallel
@@ -117,7 +118,7 @@ class Population():
                     if progress_bar:
                         fit_iter = tqdm(enumerate(pool.imap(fn, pop),
                             total = pop.size))
-                        fit_iter.set_description("Computing fitness")
+                        fit_iter.set_description(progress_text)
                     else:
                         fit_iter = enumerate(pool.map(fn, pop))
                     for (i, new_fitness) in fit_iter:
@@ -125,7 +126,7 @@ class Population():
             else:
                 if progress_bar:
                     fit_iter = tqdm(enumerate(map(fn, pop)), total = pop.size)
-                    fit_iter.set_description("Computing fitness")
+                    fit_iter.set_description(progress_text)
                 else:
                     fit_iter = enumerate(map(fn, pop))
                 for (i, new_fitness) in fit_iter:
