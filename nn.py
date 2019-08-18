@@ -4,10 +4,18 @@ import time
 from functools import partial
 import tensorflow.compat.v1 as tf
 from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Input, Dense, Dropout
-from tensorflow.keras.callbacks import Callback, EarlyStopping
+from tensorflow.keras.layers import Input
+from tensorflow.keras.layers import Dense
+from tensorflow.keras.layers import Dropout
+from tensorflow.keras.callbacks import Callback
+from tensorflow.keras.callbacks import EarlyStopping
+from sklearn.metrics import accuracy_score
+from sklearn.metrics import f1_score
+from sklearn.metrics import precision_score
+from sklearn.metrics import recall_score
 
-from core import Genus, Population
+from core import Genus
+from core import Population
 
 # Suppress deprecation warnings
 from tensorflow.python.util import deprecation
@@ -17,8 +25,47 @@ deprecation._PRINT_DEPRECATION_WARNINGS = False
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 
+class FNN(Genus):
+    ''' Feed-forward neural network genus.
+
+    INPUT:
+        (iterable) number_of_hidden_layers: numbers of hidden layers
+        (iterable) input_dropout: values for input dropout
+        (iterable) hidden_dropout: values for dropout at hidden layers
+        (iterable) neurons_per_hidden_layer = neurons in hidden layers
+        (iterable) optimizer: keras optimizers
+        (iterable) hidden_activation: keras activation functions
+        (iterable) batch_size: batch sizes
+        (iterable) initializer: keras initializers
+        '''
+    def __init__(self,
+        number_of_hidden_layers = np.arange(1, 4),
+        input_dropout = np.arange(0, 1, 0.1),
+        hidden_dropout = np.arange(0, 1, 0.1),
+        neurons_per_hidden_layer = np.array([2 ** n for n in range(4, 11)]),
+        optimizer = np.array(['adam', 'nadam']),
+        hidden_activation = np.array(['relu', 'elu']),
+        batch_size = np.array([2 ** n for n in range(4, 12)]),
+        initializer = np.array(['lecun_uniform', 'lecun_normal',
+                                'glorot_uniform', 'glorot_normal',
+                                'he_uniform', 'he_normal']):
+
+        self.number_of_hidden_layers = number_of_hidden_layers,
+        self.input_dropout = input_dropout,
+        self.hidden_dropout = hidden_dropout,
+        self.neurons_per_hidden_layer = neurons_per_hidden_layer,
+        self.optimizer = optimizer,
+        self.hidden_activation = hidden_activation,
+        self.batch_size = batch_size,
+        self.initializer = initializer
+       
+        # Hack to fix weird bug 
+        for key in self.__dict__.keys():
+            if key != 'initializer':
+                self.__dict__[key] = self.__dict__[key][0]
+
 class TimeStopping(Callback):
-    '''Stop training when enough time has passed.
+    ''' Callback to stop training when enough time has passed.
 
     INPUT
         (int) seconds: maximum time before stopping.
@@ -39,27 +86,59 @@ class TimeStopping(Callback):
             if self.verbose:
                 print(f'Stopping after {self.seconds} seconds.')
 
-def fnn_fitness(fnn, train_val_sets, loss_fn, number_of_inputs,
-    number_of_outputs = 1, output_activation = 'sigmoid',
+def train_fnn(fnn, train_val_sets, loss_fn = 'binary_crossentropy',
+    number_of_inputs = 'infer', number_of_outputs = 'infer',
+    output_activation = 'sigmoid', score = 'accuracy',
     max_epochs = 1000000, patience = 5, min_change = 1e-4,
     max_training_time = None, verbose = False):
+    ''' Train a feed-forward neural network and output the score.
+    
+    INPUT
+        (FNN) fnn: a feed-forward neural network genus
+        (tuple) train_val_sets: a quadruple of the form
+                (X_train, Y_train, X_val, Y_val)
+        (string) loss_fn: keras loss function
+        (int or string) number_of_inputs: number of input features,
+                        will infer from X_train if it's set to 'infer'
+        (int or string) number_of_outputs: number of output features,
+                        will infer from Y_train if it's set to 'infer'
+        (string) output_activation: keras activation to be used on output
+        (string) the scoring used. Can be 'accuracy', 'f1', 'precision' or
+                 'recall', where the micro-average will be taken if there
+                 are multiple outputs
+        (int) max_epochs: maximum number of epochs to train for
+        (int) patience: number of epochs with no progress above min_change
+        (float) min_change: everything below this number won't count as a
+                change in the score
+        (int) max_training_time: maximum number of seconds to train for,
+              also training the final epoch after the time has run out
+        (int) verbose: verbosity mode
+
+    OUTPUT
+        (float) the score of the neural network
+    '''
 
     X_train, Y_train, X_val, Y_val = train_val_sets
 
+    if number_of_inputs == 'infer':
+        number_of_inputs = X_train.shape[1]
+    if number_of_outputs == 'infer':
+        number_of_outputs = Y_train.shape[1]
+
     inputs = Input(shape = (number_of_inputs,))
-    x = Dropout(fnn.genome['input_dropout'])(inputs)
-    for i in range(fnn.genome['number_of_hidden_layers']):
-        x = Dense(fnn.genome['neurons_per_hidden_layer'],
-            activation = fnn.genome['hidden_activation'],
-            kernel_initializer = fnn.genome['initializer'])(x)
-        x = Dropout(fnn.genome['hidden_dropout'])(x)
+    x = Dropout(fnn.input_dropout)(inputs)
+    for i in range(fnn.number_of_hidden_layers):
+        x = Dense(fnn.neurons_per_hidden_layer,
+            activation = fnn.hidden_activation,
+            kernel_initializer = fnn.initializer)(x)
+        x = Dropout(fnn.hidden_dropout)(x)
     outputs = Dense(number_of_outputs, activation = output_activation,
-        kernel_initializer = fnn.genome['initializer'])(x)
+        kernel_initializer = fnn.initializer)(x)
     nn = Model(inputs = inputs, outputs = outputs)
 
     nn.compile(
         loss = loss_fn,
-        optimizer = fnn.genome['optimizer']
+        optimizer = fnn.optimizer
         )
 
     early_stopping = EarlyStopping(
@@ -78,85 +157,79 @@ def fnn_fitness(fnn, train_val_sets, loss_fn, number_of_inputs,
     H = nn.fit(
         X_train,
         Y_train,
-        batch_size = fnn.genome['batch_size'],
+        batch_size = fnn.batch_size,
         validation_data = (X_val, Y_val),
         epochs = max_epochs,
         callbacks = [early_stopping, time_stopping],
         verbose = verbose
         )
+
+    if Y_val.shape[1] > 1:
+        average = 'micro'
+    else:
+        average = None
+
+    Y_hat = np.greater(np.asarray(nn.predict(X_val, batch_size = 32)), 0.5)
+    if score == 'accuracy':
+        fitness = accuracy_score(Y_val, Y_hat)
+    if score == 'f1':
+        fitness = f1_score(Y_val, Y_hat, average = average)
+    if score == 'precision':
+        fitness = precision_score(Y_val, Y_hat, average = average)
+    if score == 'recall':
+        fitness = recall_score(Y_val, Y_hat, average = average)
         
-    return 1 / nn.evaluate(X_val, Y_val, verbose = verbose)
+    return fitness
 
-def optimize_fnn(
-    train_val_sets,
-    population_size = 10,
-    generations = 5,
-    keep = 0.20,
-    mutate = 0.5,
-    loss_fn = 'binary_crossentropy',
-    output_activation = 'sigmoid',
-    number_of_inputs = 'infer',
-    number_of_outputs = 'infer',
-    patience = 3,
-    max_training_time = None,
-    min_change = 0.1,
-    max_epochs = 20,
-    number_of_hidden_layers = range(1, 5),
-    input_dropout = np.arange(0, 1, 0.1),
-    hidden_dropout = np.arange(0, 1, 0.1),
-    neurons_per_hidden_layer = [2 ** n for n in range(4, 12)],
-    optimizer = ['adam', 'nadam', 'rmsprop'],
-    hidden_activation = ['relu', 'elu', 'tanh'],
-    batch_size = [2 ** n for n in range(4, 12)],
-    initializer = ['lecun_uniform', 'lecun_normal', 'glorot_uniform',
-                   'glorot_normal', 'he_uniform', 'he_normal'],
-    multiprocessing = False,
-    verbose = False):
-
-    if number_of_inputs == 'infer':
-        number_of_inputs = train_val_sets[0].shape[1]
-    if number_of_outputs == 'infer':
-        number_of_outputs = train_val_sets[1].shape[1]
-
-    FNN = Genus({
-        'number_of_hidden_layers'   : number_of_hidden_layers,
-        'input_dropout'             : input_dropout,
-        'hidden_dropout'            : hidden_dropout,
-        'neurons_per_hidden_layer'  : neurons_per_hidden_layer,
-        'optimizer'                 : optimizer,
-        'hidden_activation'         : hidden_activation,
-        'batch_size'                : batch_size,
-        'initializer'               : initializer,
-        })
-
-    fitness_fn = partial(
-        fnn_fitness,
-        train_val_sets      = train_val_sets,
-        loss_fn             = loss_fn,
-        number_of_inputs    = number_of_inputs,
-        number_of_outputs   = number_of_outputs,
-        output_activation   = output_activation,
-        max_epochs          = max_epochs,
-        patience            = patience,
-        max_training_time   = max_training_time,
-        verbose             = verbose
-        )
+def get_fitness_fn(train_val_sets, loss_fn, number_of_inputs = 'infer',
+    number_of_outputs = 'infer', output_activation = 'sigmoid',
+    score = 'accuracy', max_epochs = 1000000, patience = 5,
+    min_change = 1e-4, max_training_time = None, verbose = False,
+    kind = 'fnn'):
+    ''' Return a neural network fitness function of the specified kind.
     
-    fnns = Population(
-        genus       = FNN,
-        size        = population_size,
-        fitness_fn  = fitness_fn
-        )
+    INPUT
+        (tuple) train_val_sets: a quadruple of the form
+                (X_train, Y_train, X_val, Y_val)
+        (string) loss_fn: keras loss function
+        (int or string) number_of_inputs: number of input features,
+                        will infer from X_train if it's set to 'infer'
+        (int or string) number_of_outputs: number of output features,
+                        will infer from Y_train if it's set to 'infer'
+        (string) output_activation: keras activation to be used on output
+        (string) the scoring used. Can be 'accuracy', 'f1', 'precision' or
+                 'recall', where the micro-average will be taken if there
+                 are multiple outputs
+        (int) max_epochs: maximum number of epochs to train for
+        (int) patience: number of epochs with no progress above min_change
+        (float) min_change: everything below this number won't count as a
+                change in the score
+        (int) max_training_time: maximum number of seconds to train for,
+              also training the final epoch after the time has run out
+        (int) verbose: verbosity mode
+        (string) kind: type of neural network, can only be 'fnn' at the moment
 
-    history = fnns.evolve(
-        generations = generations,
-        keep = keep,
-        mutate = mutate,
-        multiprocessing = multiprocessing,
-        verbose = verbose
-        )
+    OUTPUT
+        (function) fitness function
+    '''
 
-    return history
+    if kind == 'fnn':
+        fitness_fn = partial(
+            train_fnn,
+            train_val_sets      = train_val_sets,
+            loss_fn             = loss_fn,
+            number_of_inputs    = number_of_inputs,
+            number_of_outputs   = number_of_outputs,
+            output_activation   = output_activation,
+            score               = score,
+            max_epochs          = max_epochs,
+            patience            = patience,
+            min_change          = min_change,
+            max_training_time   = max_training_time,
+            verbose             = verbose
+            )
+    
+    return fitness_fn
 
 
 if __name__ == '__main__':
@@ -169,20 +242,30 @@ if __name__ == '__main__':
     X_val = ((mnist.test_images() / 255) - 0.5).reshape((-1, 784))
     Y_val = to_categorical(mnist.test_labels())
 
-    past = time.time()
-    history = optimize_fnn(
-        (X_train, Y_train, X_val, Y_val),
-        loss_fn = 'categorical_crossentropy',
-        number_of_outputs = 10,
-        output_activation = 'softmax',
-        population_size = 20,
-        generations = 10,
-        max_training_time = 60
+    fitness_fn = get_fitness_fn(
+        kind                = 'fnn',
+        train_val_sets      = (X_train, Y_train, X_val, Y_val),
+        loss_fn             = 'binary_crossentropy',
+        score               = 'accuracy',
+        output_activation   = 'softmax',
+        max_training_time   = 60
         )
+
+    fnns = Population(
+        genus       = FNN(),
+        fitness_fn  = fitness_fn,
+        size        = 20
+        )
+
+    past = time.time()
+    history = fnns.evolve(generations = 10, multiprocessing = False)
     duration = time.time() - past
 
     print(f"Evolution time: {duration}")
     print("Fittest genome across all generations:")
     print(history.fittest)
 
-    history.plot()
+    history.plot(
+        title = "Average accuracy by generation",
+        ylabel = "Average accuracy"
+        )
