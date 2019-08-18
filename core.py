@@ -63,7 +63,7 @@ class Organism():
         # Child will inherit genes from its parents randomly
         child_genome = {
             key : np.random.choice([self.__dict__[key], other.__dict__[key]])
-                  for key in self.__dict__.keys()
+                  for key in self.__dict__.keys() - {'genus'}
             }
 
         return Organism(self.genus, **child_genome)
@@ -71,7 +71,7 @@ class Organism():
     def mutate(self):
         ''' Return mutated version of the organism, where the mutated version
             will on average have one gene different from the original. '''
-        keys = np.asarray(list(self.__dict__.keys()))
+        keys = np.asarray(list(self.__dict__.keys() - {'genus'}))
         mut_idx = np.less(np.random.random(keys.size), np.divide(1, keys.size))
         mut_vals = {key : np.random.choice(self.genus.__dict__[key])
                           for key in keys[mut_idx]}
@@ -167,7 +167,7 @@ class Population():
             indices[i] = idx - 1
         
         cache = {
-            'genomes' : np.array([org.__dict__for org in pop]),
+            'genomes' : np.array([org.__dict__ for org in pop]),
             'fitnesses' : fitnesses
             }
 
