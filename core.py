@@ -74,9 +74,11 @@ class Organism():
             will on average have one gene different from the original. '''
         keys = np.asarray(list(self.genome.keys()))
         mut_idx = np.less(np.random.random(keys.size), np.divide(1, keys.size))
-        mut_genes = {key : np.random.choice(self.genus.__dict__[key]) for
-            key in keys[mut_idx]}
-        return Organism(self.genus, **{**self.genome, **mut_genes})
+        mut_vals = {key : np.random.choice(self.genus.__dict__[key])
+                          for key in keys[mut_idx]}
+        self.__dict__.update(mut_vals)
+        self.genome.update(mut_vals)
+        return self #Organism(self.genus, **{**self.genome, **mut_genes})
 
 class Population():
     ''' Population of organisms, all of the same genus. '''
@@ -116,8 +118,8 @@ class Population():
                 # Compute fitness values in parallel
                 with Pool(workers) as pool:
                     if progress_bar:
-                        fit_iter = tqdm(enumerate(pool.imap(fn, pop),
-                            total = pop.size))
+                        fit_iter = tqdm(enumerate(pool.imap(fn, pop)),
+                            total = pop.size)
                         fit_iter.set_description(progress_text)
                     else:
                         fit_iter = enumerate(pool.map(fn, pop))
@@ -213,9 +215,15 @@ class Population():
             parents = np.random.choice(fit_organisms, (self.size, 2))
             children = np.array([parents[i, 0].breed(parents[i, 1])
                 for i in range(self.size)])
+
+            # Mutate the children
             mutators = np.less(np.random.random(self.size), mutation_pool)
-            children[mutators] = np.array(
-                [child.mutate() for child in children[mutators]])
+            for mutator in children[mutators]:
+                mutator.mutate()
+            #children[mutators] = np.array(
+            #    [child.mutate() for child in children[mutators]])
+
+            # The children constitutes our new generation
             self.population = children
             
         # Print another line if there are two progress bars

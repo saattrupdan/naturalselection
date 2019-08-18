@@ -9,6 +9,7 @@ from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import Dropout
 from tensorflow.keras.callbacks import Callback
 from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras import backend as K
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import f1_score
 from sklearn.metrics import precision_score
@@ -48,7 +49,7 @@ class FNN(Genus):
         batch_size = np.array([2 ** n for n in range(4, 12)]),
         initializer = np.array(['lecun_uniform', 'lecun_normal',
                                 'glorot_uniform', 'glorot_normal',
-                                'he_uniform', 'he_normal']):
+                                'he_uniform', 'he_normal'])):
 
         self.number_of_hidden_layers = number_of_hidden_layers,
         self.input_dropout = input_dropout,
@@ -154,7 +155,7 @@ def train_fnn(fnn, train_val_sets, loss_fn = 'binary_crossentropy',
         verbose = verbose
         )
 
-    H = nn.fit(
+    nn.fit(
         X_train,
         Y_train,
         batch_size = fnn.batch_size,
@@ -178,6 +179,9 @@ def train_fnn(fnn, train_val_sets, loss_fn = 'binary_crossentropy',
         fitness = precision_score(Y_val, Y_hat, average = average)
     if score == 'recall':
         fitness = recall_score(Y_val, Y_hat, average = average)
+    
+    # Clear tensorflow session to avoid memory leak
+    K.clear_session()
         
     return fitness
 
