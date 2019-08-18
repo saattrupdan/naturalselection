@@ -40,15 +40,15 @@ class FNN(Genus):
         '''
     def __init__(self,
         number_of_hidden_layers = np.arange(1, 4),
-        input_dropout = np.arange(0, 1, 0.1),
-        hidden_dropout = np.arange(0, 1, 0.1),
+        input_dropout = np.arange(0, 0.6, 0.1),
+        hidden_dropout = np.arange(0, 0.6, 0.1),
         neurons_per_hidden_layer = np.array([2 ** n for n in range(4, 11)]),
         optimizer = np.array(['adam', 'nadam']),
         hidden_activation = np.array(['relu', 'elu']),
         batch_size = np.array([2 ** n for n in range(4, 12)]),
         initializer = np.array(['lecun_uniform', 'lecun_normal',
                                 'glorot_uniform', 'glorot_normal',
-                                'he_uniform', 'he_normal']):
+                                'he_uniform', 'he_normal'])):
 
         self.number_of_hidden_layers = number_of_hidden_layers,
         self.input_dropout = input_dropout,
@@ -258,7 +258,7 @@ if __name__ == '__main__':
         )
 
     past = time.time()
-    history = fnns.evolve(generations = 10, multiprocessing = False)
+    history = fnns.evolve(generations = 10, multiprocessing = True)
     duration = time.time() - past
 
     print(f"Evolution time: {duration}")

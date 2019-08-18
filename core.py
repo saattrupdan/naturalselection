@@ -116,8 +116,8 @@ class Population():
                 # Compute fitness values in parallel
                 with Pool(workers) as pool:
                     if progress_bar:
-                        fit_iter = tqdm(enumerate(pool.imap(fn, pop),
-                            total = pop.size))
+                        fit_iter = tqdm(enumerate(pool.imap(fn, pop)),
+                            total = pop.size)
                         fit_iter.set_description(progress_text)
                     else:
                         fit_iter = enumerate(pool.map(fn, pop))
