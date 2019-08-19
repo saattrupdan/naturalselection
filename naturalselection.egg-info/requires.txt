@@ -8,5 +8,3 @@ time
 itertools
 tensorflow
 sklearn
-os
-sys
