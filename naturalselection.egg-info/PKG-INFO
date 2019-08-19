@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: naturalselection
-Version: 0.1
+Version: 0.1.1
 Summary: An all-purpose pythonic genetic algorithm
 Home-page: https://github.com/saattrupdan/naturalselection
 Author: Dan Saattrup Nielsen
