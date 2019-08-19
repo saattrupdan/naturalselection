@@ -8,9 +8,8 @@ setuptools.setup(
     entry_points = {'console_scripts' : 
         ['core = naturalselection.core', 'nn = naturalselection.nn']},
     install_requires = ['numpy', 'functools', 'matplotlib', 'tqdm',
-                        'multiprocessing', 'time', 'itertools',
-                        'tensorflow', 'sklearn'],
-    version = "0.1.3",
+                        'time', 'itertools', 'tensorflow', 'sklearn'],
+    version = "0.1.4",
     author = "Dan Saattrup Nielsen",
     author_email = "saattrupdan@gmail.com",
     description = "An all-purpose pythonic genetic algorithm",

@@ -2,7 +2,6 @@ numpy
 functools
 matplotlib
 tqdm
-multiprocessing
 time
 itertools
 tensorflow
