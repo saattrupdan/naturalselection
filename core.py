@@ -38,6 +38,17 @@ class Genus():
             for key in self.__dict__.keys()}) for _ in range(amount)])
         return organisms
 
+    def alter_genomes(self, **genomes):
+        ''' Add or change genomes to the genus. '''
+        self.__dict__.update(genomes)
+        return self
+
+    def remove_genomes(self, *keys):
+        ''' Remove genomes from the genus. '''
+        for key in keys:
+            self.__dict__.pop(key, None)
+        return self
+
 class Organism():
     ''' Organism of a particular genus. '''
 
@@ -53,6 +64,10 @@ class Organism():
         self.__dict__.update(genome)
         self.genus = genus
 
+    def get_genome(self):
+        attrs = self.__dict__.items()
+        return {key : val for (key, val) in attrs if key != 'genus'}
+
     def breed(self, other):
         ''' Breed organism with another organism, returning a new
             organism of the same genus. '''
@@ -62,8 +77,9 @@ class Organism():
 
         # Child will inherit genes from its parents randomly
         child_genome = {
-            key : np.random.choice([self.__dict__[key], other.__dict__[key]])
-                  for key in self.__dict__.keys() - {'genus'}
+            key : np.random.choice(
+                  [self.get_genome()[key], other.get_genome()[key]])
+                  for key in self.get_genome().keys()
             }
 
         return Organism(self.genus, **child_genome)
@@ -71,7 +87,7 @@ class Organism():
     def mutate(self):
         ''' Return mutated version of the organism, where the mutated version
             will on average have one gene different from the original. '''
-        keys = np.asarray(list(self.__dict__.keys() - {'genus'}))
+        keys = np.asarray(list(self.get_genome().keys()))
         mut_idx = np.less(np.random.random(keys.size), np.divide(1, keys.size))
         mut_vals = {key : np.random.choice(self.genus.__dict__[key])
                           for key in keys[mut_idx]}
@@ -167,7 +183,7 @@ class Population():
             indices[i] = idx - 1
         
         cache = {
-            'genomes' : np.array([org.__dict__ for org in pop]),
+            'genomes' : np.array([org.get_genome() for org in pop]),
             'fitnesses' : fitnesses
             }
 
@@ -176,7 +192,7 @@ class Population():
 
     def evolve(self, generations = 1, breeding_pool = 0.20,
         mutation_pool = 0.20, multiprocessing = True, workers = cpu_count(),
-        progress_bars = 2):
+        progress_bars = 2, verbose = 0):
         ''' Evolve the population.
 
         INPUT
@@ -190,6 +206,7 @@ class Population():
             (int) progress_bars: number of progress bars to show, where 1
                   only shows the main evolution progress, and 2 shows both
                   the evolution and the fitness computation per generation
+            (int) verbose: verbosity mode
         '''
     
         history = History()
@@ -214,7 +231,7 @@ class Population():
 
             # Store data for this generation
             history.add_entry(cache)
-       
+
             # Breed until we reach the same size
             parents = np.random.choice(fit_organisms, (self.size, 2))
             children = np.array([parents[i, 0].breed(parents[i, 1])
@@ -227,6 +244,13 @@ class Population():
 
             # The children constitutes our new generation
             self.population = children
+            
+            if verbose:
+                print(f"Mean fitness for previous generation: " \
+                      f"{np.mean(history.fitness_history[-1])}")
+                print(f"Std fitness for previous generation: " \
+                      f"{np.std(history.fitness_history[-1])}")
+                print(f"Fittest so far: {history.fittest}")
             
         # Print another line if there are two progress bars
         if progress_bars == 2:

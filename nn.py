@@ -262,7 +262,7 @@ if __name__ == '__main__':
         )
 
     past = time.time()
-    history = fnns.evolve(generations = 100, multiprocessing = False)
+    history = fnns.evolve(generations = 10, multiprocessing = False, verbose = 1)
     duration = time.time() - past
 
     print(f"Evolution time: {duration}")
