@@ -13,5 +13,6 @@ Description: # naturalselection
 Keywords: genetic algorithm neural network
 Platform: UNKNOWN
 Classifier: Programming Language :: Python :: 3
-Classifier: License :: OSI Approved :: Python Software Foundation LicenseOperating System :: OS Independent
+Classifier: License :: OSI Approved :: Python Software Foundation License
+Classifier: Operating System :: OS Independent
 Description-Content-Type: text/markdown

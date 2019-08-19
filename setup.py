@@ -21,7 +21,7 @@ setuptools.setup(
     packages = setuptools.find_packages(),
     classifiers = [
      "Programming Language :: Python :: 3",
-     "License :: OSI Approved :: Python Software Foundation License"
+     "License :: OSI Approved :: Python Software Foundation License",
      "Operating System :: OS Independent",
     ],
     )
