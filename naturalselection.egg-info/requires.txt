@@ -1,6 +1,6 @@
 numpy
 functools
-matplotlib.pyplot
+matplotlib
 tqdm
 multiprocessing
 contextlib

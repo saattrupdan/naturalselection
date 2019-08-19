@@ -7,10 +7,10 @@ setuptools.setup(
     name = 'naturalselection',  
     entry_points = {'console_scripts' : 
         ['core = naturalselection.core', 'nn = naturalselection.nn']},
-    install_requires = ['numpy', 'functools', 'matplotlib.pyplot', 'tqdm',
+    install_requires = ['numpy', 'functools', 'matplotlib', 'tqdm',
                         'multiprocessing', 'contextlib', 'time', 'itertools',
                         'tensorflow', 'sklearn', 'os', 'sys'],
-    version = "0.1",
+    version = "0.1.1",
     author = "Dan Saattrup Nielsen",
     author_email = "saattrupdan@gmail.com",
     description = "An all-purpose pythonic genetic algorithm",
@@ -21,7 +21,7 @@ setuptools.setup(
     packages = setuptools.find_packages(),
     classifiers = [
      "Programming Language :: Python :: 3",
-     "License :: OSI Approved :: Python Software Foundation License"
+     "License :: OSI Approved :: Python Software Foundation License",
      "Operating System :: OS Independent",
     ],
     )
