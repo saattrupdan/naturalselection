@@ -1,5 +1,3 @@
-# genalg
+# Darwin
 
-Pythonic genetic algorithm.
-
-**Warning: very much work in progress**
+An all-purpose pythonic genetic algorithm.

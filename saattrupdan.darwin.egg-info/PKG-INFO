@@ -1,0 +1,17 @@
+Metadata-Version: 2.1
+Name: saattrupdan.darwin
+Version: 0.1
+Summary: An all-purpose pythonic genetic algorithm
+Home-page: https://github.com/saattrupdan/darwin
+Author: Dan Saattrup Nielsen
+Author-email: saattrupdan@gmail.com
+License: UNKNOWN
+Description: # Darwin
+        
+        An all-purpose pythonic genetic algorithm.
+        
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Description-Content-Type: text/markdown
