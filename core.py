@@ -2,7 +2,6 @@ import numpy as np
 import sys
 import os
 from functools import reduce
-from itertools import product
 
 # Plots
 import matplotlib.pyplot as plt

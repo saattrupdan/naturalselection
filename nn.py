@@ -3,21 +3,18 @@ import os
 import time
 from functools import partial, reduce
 from itertools import permutations, chain
+
+# Neural network packages
 import tensorflow.compat.v1 as tf
 from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Input
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import Dropout
-from tensorflow.keras.callbacks import Callback
-from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras.layers import Input, Dense, Dropout
+from tensorflow.keras.callbacks import Callback, EarlyStopping
 from tensorflow.keras import backend as K
 from sklearn.metrics import accuracy_score
-from sklearn.metrics import f1_score
-from sklearn.metrics import precision_score
-from sklearn.metrics import recall_score
+from sklearn.metrics import f1_score, precision_score, recall_score
 
-from core import Genus
-from core import Population
+# Local packages
+from core import Genus, Population
 
 # Suppress deprecation warnings
 from tensorflow.python.util import deprecation
