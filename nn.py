@@ -246,17 +246,17 @@ if __name__ == '__main__':
         loss_fn             = 'binary_crossentropy',
         score               = 'accuracy',
         output_activation   = 'softmax',
-        max_training_time   = 300
+        max_training_time   = 60
         )
 
     fnns = Population(
         genus       = FNN(),
         fitness_fn  = fitness_fn,
-        size        = 20
+        size        = 50
         )
 
     past = time.time()
-    history = fnns.evolve(generations = 10, multiprocessing = True)
+    history = fnns.evolve(generations = 10)
     duration = time.time() - past
 
     print(f"Evolution time: {duration}")

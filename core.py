@@ -76,11 +76,14 @@ class Organism():
             raise Exception("Only organisms of the same genus can breed.")
 
         # Child will inherit genes from its parents randomly
-        child_genome = {
-            key : np.random.choice(
-                  [self.get_genome()[key], other.get_genome()[key]])
-                  for key in self.get_genome().keys()
+        parents_genomes = {
+            key : (self.get_genome()[key], other.get_genome()[key])
+                for key in self.get_genome().keys()
             }
+        child_genome = {
+            key : pair[np.random.choice([0, 1])]
+                for (key, pair) in parents_genomes.items()
+        }
 
         return Organism(self.genus, **child_genome)
 
@@ -283,13 +286,26 @@ class Population():
                 history = history
                 )
 
+            if verbose:
+                print("")
+                print("Breeding pool:")
+                print(np.array([org.get_genome() for org in fit_organisms]))
+                print("Breeding...")
+
             # Breed until we reach the same size
             parents = np.random.choice(fit_organisms, (self.size, 2))
             children = np.array([parents[i, 0].breed(parents[i, 1])
                 for i in range(self.size)])
 
-            # Mutate the children
+            # Find the mutation pool
             mutators = np.less(np.random.random(self.size), mutation_pool)
+
+            if verbose:
+                print("Mutation pool:")
+                print(np.array([c.get_genome() for c in children[mutators]]))
+                print("Mutating...")
+
+            # Mutate the children
             for mutator in children[mutators]:
                 mutator.mutate()
 
@@ -297,7 +313,6 @@ class Population():
             self.population = children
             
             if verbose:
-                print("")
                 print(f"Mean fitness for previous generation: " \
                       f"{np.mean(history.fitness_history[-1])}")
                 print(f"Std fitness for previous generation: " \
