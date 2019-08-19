@@ -1,0 +1,11 @@
+README.md
+setup.py
+naturalselection/__init__.py
+naturalselection/core.py
+naturalselection/nn.py
+naturalselection.egg-info/PKG-INFO
+naturalselection.egg-info/SOURCES.txt
+naturalselection.egg-info/dependency_links.txt
+naturalselection.egg-info/entry_points.txt
+naturalselection.egg-info/requires.txt
+naturalselection.egg-info/top_level.txt

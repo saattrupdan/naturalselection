@@ -247,7 +247,7 @@ if __name__ == '__main__':
         loss_fn             = 'binary_crossentropy',
         score               = 'accuracy',
         output_activation   = 'softmax',
-        max_training_time   = 60
+        max_training_time   = 120
         )
 
     fnns = Population(
@@ -257,7 +257,7 @@ if __name__ == '__main__':
         )
 
     past = time.time()
-    history = fnns.evolve(generations = 10)
+    history = fnns.evolve(generations = 50)
     duration = time.time() - past
 
     print(f"Evolution time: {duration}")
@@ -266,5 +266,6 @@ if __name__ == '__main__':
 
     history.plot(
         title = "Average accuracy by generation",
-        ylabel = "Average accuracy"
+        ylabel = "Average accuracy",
+        save_to = 'mnist_plot.png'
         )

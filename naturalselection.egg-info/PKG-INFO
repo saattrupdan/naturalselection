@@ -1,17 +1,17 @@
 Metadata-Version: 2.1
-Name: saattrupdan.darwin
+Name: naturalselection
 Version: 0.1
 Summary: An all-purpose pythonic genetic algorithm
-Home-page: https://github.com/saattrupdan/darwin
+Home-page: https://github.com/saattrupdan/naturalselection
 Author: Dan Saattrup Nielsen
 Author-email: saattrupdan@gmail.com
 License: UNKNOWN
-Description: # Darwin
+Description: # naturalselection
         
         An all-purpose pythonic genetic algorithm.
         
+Keywords: genetic algorithm neural network
 Platform: UNKNOWN
 Classifier: Programming Language :: Python :: 3
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Operating System :: OS Independent
+Classifier: License :: OSI Approved :: Python Software Foundation LicenseOperating System :: OS Independent
 Description-Content-Type: text/markdown

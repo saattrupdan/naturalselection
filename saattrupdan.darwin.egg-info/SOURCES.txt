@@ -1,6 +1,0 @@
-README.md
-setup.py
-saattrupdan.darwin.egg-info/PKG-INFO
-saattrupdan.darwin.egg-info/SOURCES.txt
-saattrupdan.darwin.egg-info/dependency_links.txt
-saattrupdan.darwin.egg-info/top_level.txt

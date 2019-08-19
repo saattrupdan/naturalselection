@@ -1,0 +1,12 @@
+numpy
+functools
+matplotlib.pyplot
+tqdm
+multiprocessing
+contextlib
+time
+itertools
+tensorflow
+sklearn
+os
+sys
