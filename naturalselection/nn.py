@@ -3,7 +3,7 @@ import sys
 import os
 import time
 from functools import partial, reduce
-from itertools import permutations, chain
+from itertools import permutations, chain, product
 
 # Neural network packages
 import tensorflow.compat.v1 as tf
@@ -30,7 +30,7 @@ class FNN(Genus):
 
     INPUT:
         (iterable) number_of_hidden_layers: numbers of hidden layers
-        (iterable) dropout: values for input dropout
+        (iterable) dropout: values for dropout
         (iterable) neurons_per_hidden_layer = neurons in hidden layers
         (iterable) optimizer: keras optimizers
         (iterable) hidden_activation: keras activation functions
@@ -38,11 +38,12 @@ class FNN(Genus):
         (iterable) initializer: keras initializers
         '''
     def __init__(self,
-        number_of_hidden_layers = np.arange(1, 4),
+        number_of_hidden_layers = np.arange(1, 6),
         dropout = np.arange(0, 0.6, 0.1),
         neurons_per_hidden_layer = np.array([2 ** n for n in range(4, 11)]),
-        optimizer = np.array(['adam', 'nadam']),
-        hidden_activation = np.array(['relu', 'elu']),
+        optimizer = np.array(['sgd', 'rmsprop', 'adagrad', 'adadelta',
+                              'adamax', 'adam', 'nadam']),
+        hidden_activation = np.array(['relu', 'elu', 'softplus', 'softsign']),
         batch_size = np.array([2 ** n for n in range(4, 12)]),
         initializer = np.array(['lecun_uniform', 'lecun_normal',
                                 'glorot_uniform', 'glorot_normal',
@@ -54,13 +55,16 @@ class FNN(Genus):
         self.initializer = initializer
         self.input_dropout = dropout
 
-        self.hidden_dropout = np.asarray(list(reduce(lambda x, y: chain(x, y),
-            [permutations(dropout, int(n)) for n in number_of_hidden_layers])))
+        L = reduce(lambda x, y: chain(x, y),
+            (permutations(neurons_per_hidden_layer, int(n))
+            for n in number_of_hidden_layers))
+        D = reduce(lambda x, y: chain(x, y),
+            (permutations(dropout, int(n))
+            for n in number_of_hidden_layers))
 
-        self.layers = np.asarray(list(reduce(lambda x, y: chain(x, y),
-            [permutations(neurons_per_hidden_layer, int(n))
-            for n in number_of_hidden_layers])))
-
+        self.hidden_layers_and_dropout = np.array([
+            (layers, dropout) for (layers, dropout) in product(L, D)
+            if len(layers) == len(dropout)])
 
 class TimeStopping(Callback):
     ''' Callback to stop training when enough time has passed.
@@ -123,9 +127,11 @@ def train_fnn(fnn, train_val_sets, loss_fn = 'binary_crossentropy',
     if number_of_outputs == 'infer':
         number_of_outputs = Y_train.shape[1]
 
+    layers, dropout = fnn.hidden_layers_and_dropout
+
     inputs = Input(shape = (number_of_inputs,))
     x = Dropout(fnn.input_dropout)(inputs)
-    for (layer, dropout) in zip(fnn.layers, fnn.hidden_dropout):
+    for layer, dropout in zip(layers, dropout):
         x = Dense(layer, activation = fnn.hidden_activation,
             kernel_initializer = fnn.initializer)(x)
         x = Dropout(dropout)(x)
@@ -233,41 +239,4 @@ def get_nn_fitness_fn(train_val_sets, loss_fn, number_of_inputs = 'infer',
 
 
 def __main__():
-
-    X_train = ((mnist.train_images() / 255) - 0.5).reshape((-1, 784))
-    Y_train = to_categorical(mnist.train_labels())
-    X_val = ((mnist.test_images() / 255) - 0.5).reshape((-1, 784))
-    Y_val = to_categorical(mnist.test_labels())
-
-    fitness_fn = ns.nn_fitness_fn(
-        kind                = 'fnn',
-        train_val_sets      = (X_train, Y_train, X_val, Y_val),
-        loss_fn             = 'binary_crossentropy',
-        score               = 'accuracy',
-        output_activation   = 'softmax',
-        max_training_time   = 120
-        )
-
-    fnns = ns.Population(
-        genus       = ns.FNN(),
-        fitness_fn  = fitness_fn,
-        size        = 50
-        )
-
-    history = fnns.evolve(generations = 50)
-
-    print("Fittest genome across all generations:")
-    print(history.fittest)
-
-    history.plot(
-        title = "Average accuracy by generation",
-        ylabel = "Average accuracy",
-        )
-
-
-if __name__ == '__main__':
-
-    from tensorflow.keras.utils import to_categorical
-    import mnist
-
-    main()
+    pass

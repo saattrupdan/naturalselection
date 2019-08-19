@@ -36,8 +36,8 @@ class Genus():
     def create_organisms(self, amount = 1):
         ''' Create organisms of this genus. '''
         organisms = np.array([Organism(genus = self, 
-            **{key : np.random.choice(self.__dict__[key])
-            for key in self.__dict__.keys()}) for _ in range(amount)])
+            **{key : val[np.random.choice(range(val.shape[0]))]
+            for (key, val) in self.__dict__.items()}) for _ in range(amount)])
         return organisms
 
     def alter_genomes(self, **genomes):
@@ -107,7 +107,8 @@ class Population():
         self.genus = genus
         self.size = size
         
-        # Fitness function cannot be a lambda expression
+        # Fitness function must be pickleable, so in particular it
+        # cannot be a lambda expression
         self.fitness_fn = fitness_fn
 
         if initial_genome:
@@ -137,10 +138,23 @@ class Population():
         pop = self.population
         fitnesses = np.zeros(pop.size)
 
+        # Duck typing function to make things immutable
+        def make_immutable(x):
+            try:
+                if not isinstance(x, str):
+                    x = tuple(x)
+            except TypeError:
+                pass
+            return x
+
         # Get the unique genomes from the current population
         genomes = np.array([org.get_genome() for org in pop])
-        unique_genomes = np.array([dict(dna) for dna
-            in set(frozenset(genome.items()) for genome in genomes)])
+
+        unique_genomes = np.array([dict(dna) for dna in
+            set(frozenset({key : make_immutable(val)
+            for (key, val) in genome.items()}.items())
+            for genome in genomes)
+            ])
 
         # If history is loaded then get the genomes from the current
         # population that are unique across all generations
@@ -169,9 +183,13 @@ class Population():
                 if genome not in all_prev_genomes])
 
         # Pull out the organisms with the unique genomes
-        unique_indices = np.array([np.min(np.array([idx
-            for (idx, org) in enumerate(pop) if org.get_genome() == genome]))
-            for genome in unique_genomes])
+        unique_indices = np.array([
+            np.min(np.array([idx for (idx, org) in enumerate(pop)
+                if {key : make_immutable(val) for (key, val)
+                in org.get_genome().items()} == genome
+                ]))
+            for genome in unique_genomes
+            ])
 
         # If there are any organisms whose fitness we didn't already
         # know then compute them
@@ -179,7 +197,7 @@ class Population():
             unique_orgs = pop[unique_indices]
 
             fn = self.fitness_fn
-            progress_text = "Computing fitness for the current generation"
+            progress_text = "Computing fitness for generation"
 
             # Compute fitness values without computing the same one twice
             with suppress_stdout():
@@ -348,7 +366,7 @@ class History():
 
     def plot(self, title = 'Average fitness by generation',
         xlabel = 'Generations', ylabel = 'Average fitness',
-        save_to = None, show_plot = True):
+        saveto = None, showplot = True):
         ''' Plot the fitness values.
 
         INPUT
@@ -371,30 +389,12 @@ class History():
         plt.xlabel(xlabel)
         plt.ylabel(ylabel)
 
-        if save_to:
+        if saveto:
             plt.savefig(save_to)
 
-        if show_plot:
+        if showplot:
             plt.show()
-
-        return self
 
 
 def __main__():
-
-    # Simple example with numbers
-    Number = ns.Genus(x = range(1, 10000), y = range(1, 10000))
-    numbers = ns.Population(genus = Number, size = 10, fitness_fn = division)
-    history = numbers.evolve(generations = 100, progress_bars = 1)
-
-    print(f"Fittest genome across all generations:")
-    print(history.fittest)
-
-    history.plot()
-
-
-if __name__ == '__main__':
-
-    def division(number):
-        return number.x / number.y
-    main()
+    pass
