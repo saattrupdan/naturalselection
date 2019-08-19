@@ -1,8 +1,5 @@
 numpy
-functools
 matplotlib
 tqdm
-time
-itertools
 tensorflow
 sklearn

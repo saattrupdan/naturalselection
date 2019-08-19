@@ -1,4 +1,4 @@
 [console_scripts]
-core = naturalselection.core
-nn = naturalselection.nn
+core = naturalselection.core:main
+nn = naturalselection.nn:main
 
