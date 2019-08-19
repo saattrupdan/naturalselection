@@ -29,8 +29,7 @@ class FNN(Genus):
 
     INPUT:
         (iterable) number_of_hidden_layers: numbers of hidden layers
-        (iterable) input_dropout: values for input dropout
-        (iterable) hidden_dropout: values for dropout at hidden layers
+        (iterable) dropout: values for input dropout
         (iterable) neurons_per_hidden_layer = neurons in hidden layers
         (iterable) optimizer: keras optimizers
         (iterable) hidden_activation: keras activation functions
@@ -39,8 +38,7 @@ class FNN(Genus):
         '''
     def __init__(self,
         number_of_hidden_layers = np.arange(1, 4),
-        input_dropout = np.arange(0, 0.6, 0.1),
-        hidden_dropout = np.arange(0, 0.6, 0.1),
+        dropout = np.arange(0, 0.6, 0.1),
         neurons_per_hidden_layer = np.array([2 ** n for n in range(4, 11)]),
         optimizer = np.array(['adam', 'nadam']),
         hidden_activation = np.array(['relu', 'elu']),
@@ -49,12 +47,15 @@ class FNN(Genus):
                                 'glorot_uniform', 'glorot_normal',
                                 'he_uniform', 'he_normal'])):
 
-        self.input_dropout = input_dropout
-        self.hidden_dropout = hidden_dropout
         self.optimizer = optimizer
         self.hidden_activation = hidden_activation
         self.batch_size = batch_size
         self.initializer = initializer
+        self.input_dropout = dropout
+
+        self.hidden_dropout = np.asarray(list(reduce(lambda x, y: chain(x, y),
+            [permutations(dropout, int(n)) for n in number_of_hidden_layers])))
+
         self.layers = np.asarray(list(reduce(lambda x, y: chain(x, y),
             [permutations(neurons_per_hidden_layer, int(n))
             for n in number_of_hidden_layers])))
@@ -123,10 +124,10 @@ def train_fnn(fnn, train_val_sets, loss_fn = 'binary_crossentropy',
 
     inputs = Input(shape = (number_of_inputs,))
     x = Dropout(fnn.input_dropout)(inputs)
-    for layer in fnn.layers:
+    for (layer, dropout) in zip(fnn.layers, fnn.hidden_dropout):
         x = Dense(layer, activation = fnn.hidden_activation,
             kernel_initializer = fnn.initializer)(x)
-        x = Dropout(fnn.hidden_dropout)(x)
+        x = Dropout(dropout)(x)
     outputs = Dense(number_of_outputs, activation = output_activation,
         kernel_initializer = fnn.initializer)(x)
     nn = Model(inputs = inputs, outputs = outputs)

@@ -369,8 +369,8 @@ class History():
 
         plt.style.use("ggplot")
         plt.figure()
-        plt.errorbar(range(gens), means, stds, fmt = 'ok')
-        plt.xlim(-1, gens + 1)
+        plt.errorbar(range(1, gens + 1), means, stds, fmt = 'ok')
+        plt.xlim(0, gens + 1)
         plt.title(title)
         plt.xlabel(xlabel)
         plt.ylabel(ylabel)
