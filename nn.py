@@ -1,7 +1,8 @@
 import numpy as np
 import os
 import time
-from functools import partial
+from functools import partial, reduce
+from itertools import permutations, chain
 import tensorflow.compat.v1 as tf
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input
@@ -51,19 +52,16 @@ class FNN(Genus):
                                 'glorot_uniform', 'glorot_normal',
                                 'he_uniform', 'he_normal'])):
 
-        self.number_of_hidden_layers = number_of_hidden_layers,
-        self.input_dropout = input_dropout,
-        self.hidden_dropout = hidden_dropout,
-        self.neurons_per_hidden_layer = neurons_per_hidden_layer,
-        self.optimizer = optimizer,
-        self.hidden_activation = hidden_activation,
-        self.batch_size = batch_size,
+        self.input_dropout = input_dropout
+        self.hidden_dropout = hidden_dropout
+        self.optimizer = optimizer
+        self.hidden_activation = hidden_activation
+        self.batch_size = batch_size
         self.initializer = initializer
-       
-        # Hack to fix weird bug 
-        for key in self.__dict__.keys():
-            if key != 'initializer':
-                self.__dict__[key] = self.__dict__[key][0]
+        self.layers = np.asarray(list(reduce(lambda x, y: chain(x, y),
+            [permutations(neurons_per_hidden_layer, int(n))
+            for n in number_of_hidden_layers])))
+
 
 class TimeStopping(Callback):
     ''' Callback to stop training when enough time has passed.
@@ -128,9 +126,8 @@ def train_fnn(fnn, train_val_sets, loss_fn = 'binary_crossentropy',
 
     inputs = Input(shape = (number_of_inputs,))
     x = Dropout(fnn.input_dropout)(inputs)
-    for i in range(fnn.number_of_hidden_layers):
-        x = Dense(fnn.neurons_per_hidden_layer,
-            activation = fnn.hidden_activation,
+    for layer in fnn.layers:
+        x = Dense(layer, activation = fnn.hidden_activation,
             kernel_initializer = fnn.initializer)(x)
         x = Dropout(fnn.hidden_dropout)(x)
     outputs = Dense(number_of_outputs, activation = output_activation,
@@ -262,7 +259,7 @@ if __name__ == '__main__':
         )
 
     past = time.time()
-    history = fnns.evolve(generations = 10, multiprocessing = False, verbose = 1)
+    history = fnns.evolve(generations = 10, multiprocessing = True)
     duration = time.time() - past
 
     print(f"Evolution time: {duration}")
