@@ -2,6 +2,7 @@ import numpy as np
 import sys
 import os
 from functools import reduce
+from itertools import product
 
 # Plots
 import matplotlib.pyplot as plt
@@ -113,7 +114,7 @@ class Population():
             self.population = genus.create_organisms(size)
 
     def get_fit_organisms(self, amount = 1, multiprocessing = True,
-        workers = cpu_count(), progress_bar = True):
+        workers = cpu_count(), progress_bar = True, history = None):
         ''' Sample a fixed amount of organisms from the population,
             where the fitter an organism is, the more it's likely
             to be chosen. 
@@ -124,37 +125,92 @@ class Population():
                    computed in parallel
             (int) how many workers to use if multiprocessing is True
             (bool) progress_bar: show progress bar
+            (History) history: previous genome and fitness history
 
         OUTPUT
             (ndarray) fit subset of population
         '''
 
         pop = self.population
-        fn = self.fitness_fn
         fitnesses = np.zeros(pop.size)
-        progress_text = "Computing fitness for the current generation"
 
-        # Compute fitness values
-        with suppress_stdout():
-            if multiprocessing:
-                with Pool(workers) as pool:
+        # Get the unique genomes from the current population
+        genomes = np.array([org.get_genome() for org in pop])
+        unique_genomes = np.array([dict(dna) for dna
+            in set(frozenset(genome.items()) for genome in genomes)])
+
+        # If history is loaded then get the genomes from the current
+        # population that are unique across all generations
+        if history:
+            all_prev_genomes = np.array([past_genome
+                for past_genomes in history.genome_history
+                for past_genome in past_genomes
+                ])
+            all_prev_fitnesses = np.array([past_fitness
+                for past_fitnesses in history.fitness_history
+                for past_fitness in past_fitnesses
+                ])
+            indices = np.array([(past_idx, idx)
+                for (idx, org) in enumerate(pop)
+                for (past_idx, past_genome) in enumerate(all_prev_genomes)
+                if org.get_genome() == past_genome
+                ])
+            past_indices = np.array([idx for (_, idx) in indices])
+
+            # Load previous fitnesses of genomes that are occuring now
+            for (past_idx, idx) in indices:
+                fitnesses[idx] = all_prev_fitnesses[past_idx]
+
+            # Remove genomes that have occured previously
+            unique_genomes = np.array([genome for genome in unique_genomes
+                if genome not in all_prev_genomes])
+
+        # Pull out the organisms with the unique genomes
+        unique_indices = np.array([np.min(np.array([idx
+            for (idx, org) in enumerate(pop) if org.get_genome() == genome]))
+            for genome in unique_genomes])
+
+        # If there are any organisms whose fitness we didn't already
+        # know then compute them
+        if unique_indices.size:
+            unique_orgs = pop[unique_indices]
+
+            fn = self.fitness_fn
+            progress_text = "Computing fitness for the current generation"
+
+            # Compute fitness values without computing the same one twice
+            with suppress_stdout():
+                if multiprocessing:
+                    with Pool(workers) as pool:
+                        if progress_bar:
+                            fit_iter = tqdm(zip(unique_indices, 
+                                pool.imap(fn, unique_orgs)),
+                                total = unique_orgs.size)
+                            fit_iter.set_description(progress_text)
+                        else:
+                            fit_iter = zip(unique_indices,
+                                pool.map(fn, unique_orgs))
+                        for (i, new_fitness) in fit_iter:
+                            fitnesses[i] = new_fitness
+                else:
                     if progress_bar:
-                        fit_iter = tqdm(enumerate(pool.imap(fn, pop)),
-                            total = pop.size)
+                        fit_iter = tqdm(zip(unique_indices,
+                            map(fn, unique_orgs)),
+                            total = unique_orgs.size)
                         fit_iter.set_description(progress_text)
                     else:
-                        fit_iter = enumerate(pool.map(fn, pop))
+                        fit_iter = zip(unique_indices, map(fn, unique_orgs))
                     for (i, new_fitness) in fit_iter:
                         fitnesses[i] = new_fitness
-            else:
-                if progress_bar:
-                    fit_iter = tqdm(enumerate(map(fn, pop)), total = pop.size)
-                    fit_iter.set_description(progress_text)
-                else:
-                    fit_iter = enumerate(map(fn, pop))
-                for (i, new_fitness) in fit_iter:
-                    fitnesses[i] = new_fitness
-        
+
+        # Copy out the fitness values to the other organisms with same genome
+        for (i, org) in enumerate(pop):
+            if i not in unique_indices and i not in past_indices:
+                prev_unique_idx = np.min(np.array([idx
+                    for idx in unique_indices
+                    if org.get_genome() == pop[idx].get_genome()]))
+                fitnesses[i] = fitnesses[prev_unique_idx]
+
         # Convert fitness values into probabilities
         probs = np.divide(fitnesses, sum(fitnesses))
 
@@ -183,7 +239,7 @@ class Population():
             indices[i] = idx - 1
         
         cache = {
-            'genomes' : np.array([org.get_genome() for org in pop]),
+            'genomes' : genomes,
             'fitnesses' : fitnesses
             }
 
@@ -226,7 +282,8 @@ class Population():
                 amount = breeders,
                 multiprocessing = multiprocessing,
                 workers = workers,
-                progress_bar = (progress_bars == 2)
+                progress_bar = (progress_bars == 2),
+                history = history
                 )
 
             # Store data for this generation
@@ -246,6 +303,7 @@ class Population():
             self.population = children
             
             if verbose:
+                print("")
                 print(f"Mean fitness for previous generation: " \
                       f"{np.mean(history.fitness_history[-1])}")
                 print(f"Std fitness for previous generation: " \
