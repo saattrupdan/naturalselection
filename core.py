@@ -238,13 +238,11 @@ class Population():
             (idx, _) = reduce(fn, map(lambda x: (1, x), probs))
             indices[i] = idx - 1
         
-        cache = {
-            'genomes' : genomes,
-            'fitnesses' : fitnesses
-            }
+        # Store data for this generation
+        history.add_entry(genomes = genomes, fitnesses = fitnesses)
 
         # Return the organisms indexed at the indices found above
-        return self.population[indices.astype(int)], cache
+        return self.population[indices.astype(int)], history
 
     def evolve(self, generations = 1, breeding_pool = 0.20,
         mutation_pool = 0.20, multiprocessing = True, workers = cpu_count(),
@@ -278,16 +276,13 @@ class Population():
 
             # Select the portion of the population that will breed
             breeders = max(2, np.ceil(self.size * breeding_pool).astype(int))
-            fit_organisms, cache = self.get_fit_organisms(
+            fit_organisms, history = self.get_fit_organisms(
                 amount = breeders,
                 multiprocessing = multiprocessing,
                 workers = workers,
                 progress_bar = (progress_bars == 2),
                 history = history
                 )
-
-            # Store data for this generation
-            history.add_entry(cache)
 
             # Breed until we reach the same size
             parents = np.random.choice(fit_organisms, (self.size, 2))
@@ -324,16 +319,13 @@ class History():
         self.fitness_history = []
         self.fittest = {'genome' : None, 'fitness' : 0}
     
-    def add_entry(self, cache: dict):
+    def add_entry(self, genomes, fitnesses):
         ''' Add genomes and fitnesses to the history. 
 
         INPUT
-            (dict) cache: dictionary with genomes and fitnesses of
-                   the form {'genomes' : [], 'fitnesses' : []}
+            (ndarray) genomes: array of genomes
+            (ndarray) fitnesses: array of fitnesses
         '''
-
-        genomes = cache['genomes']
-        fitnesses = cache['fitnesses']
 
         self.genome_history.append(genomes)
         self.fitness_history.append(fitnesses)
