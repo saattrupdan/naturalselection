@@ -10,7 +10,7 @@ setuptools.setup(
         'nn = naturalselection.nn:main', 
         ]},
     install_requires = ['numpy','matplotlib','tqdm','tensorflow','sklearn'],
-    version = "0.1.12",
+    version = "0.2.3",
     author = "Dan Saattrup Nielsen",
     author_email = "saattrupdan@gmail.com",
     description = "An all-purpose pythonic genetic algorithm",

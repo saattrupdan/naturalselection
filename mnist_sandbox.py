@@ -22,13 +22,15 @@ fnns = ns.Population(
     size = 50
     )
 
-history = fnns.evolve(generations = 10)
+history = fnns.evolve(generations = 20)
 
 print("Best overall genome is:")
 print(history.fittest)
 
+history.save_log(file_name = '/home/dn16382/pCloudDrive/mnist_log.txt')
+
 history.plot(
-    title = "Average accuracy by generation",
-    ylabel = "Average accuracy",
-    saveto = 'mnist_plot.png'
+    title = "Average 1 / (1 - accuracy) by generation",
+    file_name = '/home/dn16382/pCloudDrive/mnist_plot.png',
+    show_plot = False
   )
