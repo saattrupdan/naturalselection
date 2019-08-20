@@ -31,7 +31,9 @@ class Genus():
     ''' Storing information about all the possible gene combinations. '''
 
     def __init__(self, **genomes):
-        self.__dict__.update(genomes)
+        self.__dict__.update(
+            {key : np.asarray(val) for (key, val) in genomes.items()}
+            )
 
     def create_organisms(self, amount = 1):
         ''' Create organisms of this genus. '''
@@ -61,7 +63,8 @@ class Organism():
         genome = {key : val for (key, val) in genome.items() if key in
             genus.__dict__.keys() and val in genus.__dict__[key]}
         for key in genus.__dict__.keys() - genome.keys():
-            genome[key] = np.random.choice(genus.__dict__[key])
+            val_idx = np.random.choice(range(genus.__dict__[key].shape[0]))
+            genome[key] = genus.__dict__[key][val_idx]
 
         self.__dict__.update(genome)
         self.genus = genus
@@ -94,8 +97,9 @@ class Organism():
             will on average have one gene different from the original. '''
         keys = np.asarray(list(self.get_genome().keys()))
         mut_idx = np.less(np.random.random(keys.size), np.divide(1, keys.size))
-        mut_vals = {key : np.random.choice(self.genus.__dict__[key])
-                          for key in keys[mut_idx]}
+        mut_vals = {key : self.genus.__dict__[key]\
+            [np.random.choice(range(self.genus.__dict__[key].shape[0]))]
+            for key in keys[mut_idx]}
         self.__dict__.update(mut_vals)
         return self
 
@@ -242,7 +246,7 @@ class Population():
         self.population = pop[sorted_idx]
 
         # Get random numbers between 0 and 1 
-        indices = np.random.rand(amount)
+        indices = np.random.random(amount)
 
         if progress_bar:
             amount_range = trange(amount)
