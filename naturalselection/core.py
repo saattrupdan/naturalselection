@@ -248,13 +248,7 @@ class Population():
         # Get random numbers between 0 and 1 
         indices = np.random.random(amount)
 
-        if progress_bar:
-            amount_range = trange(amount)
-            amount_range.set_description("Choosing fittest organisms")
-        else:
-            amount_range = range(amount)
-
-        for i in amount_range:
+        for i in range(amount):
             # Find the index of the fitness value whose accumulated
             # sum exceeds the value of the i'th random number.
             fn = lambda x, y: (x[0], x[1] + y[1]) \
@@ -392,7 +386,8 @@ class History():
 
     def plot(self, title = 'Average fitness by generation',
         xlabel = 'Generations', ylabel = 'Average fitness',
-        file_name = None, show_plot = True):
+        file_name = None, show_plot = True, show_max = False,
+        discrete = False, legend = True, legend_location = 'lower right'):
         ''' Plot the fitness values.
 
         INPUT
@@ -400,20 +395,40 @@ class History():
             (string) xlabel: label on the x-axis
             (string) ylabel: label on the y-axis
             (string) file_name: file name to save the plot to
-            (bool) show_plot: whether to show plot as a pop-up
+            (bool) show_plot: show plot as a pop-up
+            (bool) show_max: show max value line on plot
+            (bool) discrete: make the error plot discrete
+            (bool) legend: show legend
+            (string or int) legend_location: legend location, either as e.g.
+                            'lower right' or a an integer between 0 and 10
         '''
 
         gens = len(self.fitness_history)
+        maxs = np.array([np.max(fit) for fit in self.fitness_history])
+        mins = np.array([np.min(fit) for fit in self.fitness_history])
         means = np.array([np.mean(fit) for fit in self.fitness_history])
         stds = np.array([np.std(fit) for fit in self.fitness_history])
 
         plt.style.use("ggplot")
         plt.figure()
-        plt.errorbar(range(1, gens + 1), means, stds, fmt = 'ok')
         plt.xlim(0, gens + 1)
         plt.title(title)
         plt.xlabel(xlabel)
         plt.ylabel(ylabel)
+        xs = range(1, gens + 1)
+
+        if show_max:
+            plt.plot(xs, maxs, '--', color = 'blue', label = 'max')
+
+        if discrete:
+            plt.errorbar(xs, means, stds, fmt = 'ok', label = 'mean and std')
+        else:
+            plt.plot(xs, means, '-', color = 'black', label = 'mean')
+            plt.fill_between(xs, means - stds, means + stds, alpha = 0.2,
+                color = 'gray', label = 'std')
+
+        if legend:
+            plt.legend(loc = legend_location)
 
         if file_name:
             plt.savefig(file_name)

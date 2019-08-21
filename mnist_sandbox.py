@@ -30,7 +30,7 @@ print(history.fittest)
 history.save_log(file_name = '/home/dn16382/pCloudDrive/mnist_log.txt')
 
 history.plot(
-    title = "Average 1 / (1 - accuracy) by generation",
+    title = "Average 1 / (1 - val_accuracy) by generation",
     file_name = '/home/dn16382/pCloudDrive/mnist_plot.png',
     show_plot = False
   )
