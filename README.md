@@ -1,4 +1,4 @@
-# NaturalSelection
+# NaturalSelection ![Logo of green flower](https://filedn.com/lRBwPhPxgV74tO0rDoe8SpH/naturalselection_data/logo.png)
 
 An all-purpose pythonic genetic algorithm, which also has built-in hyperparameter tuning support for neural networks.
 
@@ -31,7 +31,7 @@ Evolving population: 100%|██████████████████
 >>> history.plot()
 ```
 
-![Plot showing fitness value over 50 generations. The mean rises from 0 to 1500 in the first five generations, whereafter it slowly increases to roughly 2200. The maximum value converges to around 25000 after seven generations, and the standard deviation stays at around 700 throughout.](https://filedn.com/lRBwPhPxgV74tO0rDoe8SpH/naturalselection_data/example1.png "Optimising pairs of numbers")
+![Plot showing fitness value over 50 generations. The mean rises from 0 to 1500 in the first five generations, whereafter it slowly increases to roughly 2200. The maximum value converges to around 25000 after seven generations, and the standard deviation stays at around 700 throughout.](https://filedn.com/lRBwPhPxgV74tO0rDoe8SpH/naturalselection_data/example1.png)
 
 
 Here is an example of finding a vanilla feedforward neural network to model [MNIST](https://en.wikipedia.org/wiki/MNIST_database).
@@ -78,10 +78,10 @@ Computing fitness for gen 20: 100%|████████████| 23/23 [
 ...   )
 ```
 
-![Plot showing fitness value (which is accuracy in this case) over 20 generations.](https://filedn.com/lRBwPhPxgV74tO0rDoe8SpH/naturalselection_data/example2.png "Hyperparameter tuning for MNIST")
+![Plot showing fitness value (which is accuracy in this case) over 20 generations.](https://filedn.com/lRBwPhPxgV74tO0rDoe8SpH/naturalselection_data/example2.png)
 
 
-## Algorthmic details
+## Algorithmic details
 
 The algorithm follows the standard blueprint for a genetic algorithm as e.g. described on this [Wikipedia page](https://en.wikipedia.org/wiki/Genetic_algorithm), which roughly goes like this:
 
