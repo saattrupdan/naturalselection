@@ -161,7 +161,7 @@ def train_fnn(fnn, train_val_sets, loss_fn = 'binary_crossentropy',
         verbose = verbose
         )
 
-    nn.fit(
+    H = nn.fit(
         X_train,
         Y_train,
         batch_size = fnn.batch_size,
@@ -179,17 +179,24 @@ def train_fnn(fnn, train_val_sets, loss_fn = 'binary_crossentropy',
     Y_hat = np.greater(np.asarray(nn.predict(X_val, batch_size = 32)), 0.5)
     if score == 'accuracy':
         fitness = accuracy_score(Y_val, Y_hat)
-    if score == 'f1':
+        fitness = np.divide(1, np.subtract(1, fitness))
+    elif score == 'f1':
         fitness = f1_score(Y_val, Y_hat, average = average)
-    if score == 'precision':
+        fitness = np.divide(1, np.subtract(1, fitness))
+    elif score == 'precision':
         fitness = precision_score(Y_val, Y_hat, average = average)
-    if score == 'recall':
+        fitness = np.divide(1, np.subtract(1, fitness))
+    elif score == 'recall':
         fitness = recall_score(Y_val, Y_hat, average = average)
+        fitness = np.divide(1, np.subtract(1, fitness))
+    elif score == 'loss':
+        fitness = nn.evaluate(X_val, Y_val)
+        fitness = np.divide(1, fitness)
     
     # Clear tensorflow session to avoid memory leak
     K.clear_session()
         
-    return fitness #np.divide(1, np.subtract(1, fitness))
+    return fitness
 
 def get_nn_fitness_fn(train_val_sets, loss_fn, number_of_inputs = 'infer',
     number_of_outputs = 'infer', output_activation = 'sigmoid',
@@ -207,9 +214,9 @@ def get_nn_fitness_fn(train_val_sets, loss_fn, number_of_inputs = 'infer',
         (int or string) number_of_outputs: number of output features,
                         will infer from Y_train if it's set to 'infer'
         (string) output_activation: keras activation to be used on output
-        (string) the scoring used. Can be 'accuracy', 'f1', 'precision' or
-                 'recall', where the micro-average will be taken if there
-                 are multiple outputs
+        (string) score: the scoring used. Can be 'accuracy', 'f1',
+                 'precision', 'recall' or 'loss', where the micro-average
+                 will be taken if possible
         (int) max_epochs: maximum number of epochs to train for
         (int) patience: number of epochs with no progress above min_change
         (float) min_change: everything below this number won't count as a
@@ -220,7 +227,9 @@ def get_nn_fitness_fn(train_val_sets, loss_fn, number_of_inputs = 'infer',
         (string) kind: type of neural network, can only be 'fnn' at the moment
 
     OUTPUT
-        (function) fitness function
+        (function) fitness function, which will output 1 / score if score
+                   is 'loss', and otherwise 1 / (1 - score), to enable
+                   unbounded range
     '''
 
     if kind == 'fnn':

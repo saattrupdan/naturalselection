@@ -81,6 +81,16 @@ Computing fitness for generation: 100%|████████| 23/23 [06:57<00
 ![Alt](https://filedn.com/lRBwPhPxgV74tO0rDoe8SpH/naturalselection_data/example2.png "Hyperparameter tuning for MNIST")
 
 
+## Features
+
+asd
+
+
+## Algorthmic details
+
+asd
+
+
 ## License
 
 This project is licensed under the [MIT License](https://github.com/saattrupdan/naturalselection/blob/master/LICENSE).

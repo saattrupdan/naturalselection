@@ -22,7 +22,7 @@ fnns = ns.Population(
     size = 50
     )
 
-history = fnns.evolve(generations = 20)
+history = fnns.evolve(generations = 20, multiprocessing = False)
 
 print("Best overall genome is:")
 print(history.fittest)

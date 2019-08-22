@@ -28,7 +28,11 @@ def suppress_stdout():
 
 
 class Genus():
-    ''' Storing information about all the possible gene combinations. '''
+    ''' Storing information about all the possible gene combinations.
+
+    INPUT
+        (kwargs) genomes
+    '''
 
     def __init__(self, **genomes):
         self.__dict__.update(
@@ -36,14 +40,22 @@ class Genus():
             )
 
     def create_organisms(self, amount = 1):
-        ''' Create organisms of this genus. '''
+        ''' Create organisms of this genus.
+        
+        INPUT
+            (int) amount = 1
+        '''
         organisms = np.array([Organism(genus = self, 
             **{key : val[np.random.choice(range(val.shape[0]))]
             for (key, val) in self.__dict__.items()}) for _ in range(amount)])
         return organisms
 
     def alter_genomes(self, **genomes):
-        ''' Add or change genomes to the genus. '''
+        ''' Add or change genomes to the genus.
+        
+        INPUT
+            (kwargs) genomes
+        '''
         self.__dict__.update(genomes)
         return self
 
@@ -54,7 +66,12 @@ class Genus():
         return self
 
 class Organism():
-    ''' Organism of a particular genus. '''
+    ''' Organism of a particular genus. 
+
+    INPUT
+        (Genus) genus
+        (kwargs) genome: genome information
+    '''
 
     def __init__(self, genus, **genome):
 
@@ -75,7 +92,11 @@ class Organism():
 
     def breed(self, other):
         ''' Breed organism with another organism, returning a new
-            organism of the same genus. '''
+            organism of the same genus.
+
+        INPUT
+            (Organism) other
+        '''
 
         if self.genus != other.genus:
             raise Exception("Only organisms of the same genus can breed.")
@@ -104,7 +125,16 @@ class Organism():
         return self
 
 class Population():
-    ''' Population of organisms, all of the same genus. '''
+    ''' Population of organisms, all of the same genus.
+
+    INPUT
+        (Genus) genus
+        (int) size
+        (function) fitness_fn
+        (dict) initial_genome = None: this will construct a homogenous
+               population only consisting of the initial genome, for a
+               warm start
+        '''
 
     def __init__(self, genus, size, fitness_fn, initial_genome = None):
 
@@ -121,22 +151,24 @@ class Population():
         else:
             self.population = genus.create_organisms(size)
 
-    def get_fit_organisms(self, amount = 1, multiprocessing = True,
-        workers = cpu_count(), progress_bar = True, history = None):
-        ''' Sample a fixed amount of organisms from the population,
-            where the fitter an organism is, the more it's likely
-            to be chosen. 
-    
+    def get_genomes(self):
+        return np.asarray([o.get_genome() for o in self.population])
+
+    def get_fitness(self, multiprocessing = True, workers = cpu_count(),
+        progress_bar = True, history = None, generation = None):
+        ''' Compute fitness values of population.
+
         INPUT
-            (int) amount: number of fit organisms to output
-            (bool) multiprocessing: whether fitnesses should be
+            (bool) multiprocessing = True: whether fitnesses should be
                    computed in parallel
-            (int) how many workers to use if multiprocessing is True
-            (bool) progress_bar: show progress bar
-            (History) history: previous genome and fitness history
+            (int) workers = cpu_count(): how many workers to use if
+                  multiprocessing is True
+            (bool) progress_bar = True: show progress bar
+            (History) history = None: previous genome and fitness history
+            (int) generation = None
 
         OUTPUT
-            (ndarray) fit subset of population
+            (ndarray) fitness values
         '''
 
         pop = self.population
@@ -151,40 +183,33 @@ class Population():
                 pass
             return x
 
-        # Get the unique genomes from the current population
-        genomes = np.array([org.get_genome() for org in pop])
-
         unique_genomes = np.array([dict(dna) for dna in
             set(frozenset({key : make_immutable(val)
             for (key, val) in genome.items()}.items())
-            for genome in genomes)
+            for genome in self.get_genomes())
             ])
 
         # If history is loaded then get the genomes from the current
         # population that are unique across all generations
-        if history:
-            all_prev_genomes = np.array([past_genome
-                for past_genomes in history.genome_history
-                for past_genome in past_genomes
-                ])
-            all_prev_fitnesses = np.array([past_fitness
-                for past_fitnesses in history.fitness_history
-                for past_fitness in past_fitnesses
-                ])
-            indices = np.array([(past_idx, idx)
+        past_indices = np.array([])
+        if history and generation:
+            g_prev = history.genome_history
+            f_prev = history.fitness_history
+
+            indices = np.array([((np.where(g_prev == org.get_genome())[0][0],
+                np.where(g_prev == org.get_genome())[1][0]), idx)
                 for (idx, org) in enumerate(pop)
-                for (past_idx, past_genome) in enumerate(all_prev_genomes)
-                if org.get_genome() == past_genome
+                if org.get_genome() in g_prev
                 ])
             past_indices = np.array([idx for (_, idx) in indices])
 
             # Load previous fitnesses of genomes that are occuring now
             for (past_idx, idx) in indices:
-                fitnesses[idx] = all_prev_fitnesses[past_idx]
+                fitnesses[idx] = f_prev[generation-past_idx[0]-1, past_idx[1]]
 
             # Remove genomes that have occured previously
             unique_genomes = np.array([genome for genome in unique_genomes
-                if genome not in all_prev_genomes])
+                if genome not in g_prev])
 
         # Pull out the organisms with the unique genomes
         unique_indices = np.array([
@@ -200,10 +225,13 @@ class Population():
         if unique_indices.size:
             unique_orgs = pop[unique_indices]
 
-            fn = self.fitness_fn
-            progress_text = "Computing fitness for generation"
+            if isinstance(generation, int):
+                progress_text = f"Computing fitness for gen {generation}"
+            else:
+                progress_text = f"Computing fitness"
 
             # Compute fitness values without computing the same one twice
+            fn = self.fitness_fn
             with suppress_stdout():
                 if multiprocessing:
                     with Pool(workers) as pool:
@@ -235,6 +263,23 @@ class Population():
                     for idx in unique_indices
                     if org.get_genome() == pop[idx].get_genome()]))
                 fitnesses[i] = fitnesses[prev_unique_idx]
+    
+        return fitnesses
+
+
+    def sample(self, fitnesses, amount = 1):
+        ''' Sample a fixed amount of organisms from the population,
+            where the fitter an organism is, the more it's likely
+            to be chosen. 
+    
+        INPUT
+            (int) amount = 1: number of organisms to sample
+
+        OUTPUT
+            (ndarray) sample of population
+        '''
+
+        pop = self.population
 
         # Convert fitness values into probabilities
         probs = np.divide(fitnesses, sum(fitnesses))
@@ -243,7 +288,7 @@ class Population():
         # population in the same way
         sorted_idx = np.argsort(probs)[::-1]
         probs = probs[sorted_idx]
-        self.population = pop[sorted_idx]
+        pop = pop[sorted_idx]
 
         # Get random numbers between 0 and 1 
         indices = np.random.random(amount)
@@ -257,34 +302,41 @@ class Population():
             (idx, _) = reduce(fn, map(lambda x: (1, x), probs))
             indices[i] = idx - 1
         
-        # Store data for this generation
-        history.add_entry(genomes = genomes, fitnesses = fitnesses)
-
         # Return the organisms indexed at the indices found above
-        return self.population[indices.astype(int)], history
+        return pop[indices.astype(int)]
 
-    def evolve(self, generations = 1, breeding_pool = 0.30,
-        mutation_pool = 0.30, multiprocessing = True, workers = cpu_count(),
-        progress_bars = 2, verbose = 0):
+    def evolve(self, generations = 1, breeding_rate = 0.8,
+        mutation_rate = 0.2, elitism_rate = 0.05, multiprocessing = True,
+        workers = cpu_count(), progress_bars = 2, memory = 1, verbose = 0):
         ''' Evolve the population.
 
         INPUT
-            (int) generations: number of generations to evolve
-            (float) breeding_pool: percentage of population to breed 
-            (float) mutatation_pool: percentage of population to mutate
+            (int) generations = 1: number of generations to evolve
+            (float) breeding_rate = 0.8: percentage of population to breed 
+            (float) mutation_rate = 0.2: percentage of population to mutate
                     each generation
-            (bool) multiprocessing: whether fitnesses should be computed
-                   in parallel
-            (int) workers: how many workers to use if multiprocessing is True
-            (int) progress_bars: number of progress bars to show, where 1
+            (float) elitism rate = 0.05: percentage of population to keep
+                    across generations
+            (bool) multiprocessing = True: whether fitnesses should be
+                   computed in parallel
+            (int) workers = cpu_count(): how many workers to use if
+                  multiprocessing is True
+            (int) progress_bars = 2: number of progress bars to show, where 1
                   only shows the main evolution progress, and 2 shows both
                   the evolution and the fitness computation per generation
-            (int) verbose: verbosity mode
+            (int or np.nan) memory = 1: how many generations the population
+                            can look back to avoid redundant fitness
+                            computations.
+            (int) verbose = 0: verbosity mode
         '''
     
-        history = History()
+        history = History(
+            population_size = self.size,
+            generations = generations,
+            memory = memory
+            )
 
-        if progress_bars:
+        if progress_bars and not verbose:
             gen_iter = trange(generations)
             gen_iter.set_description("Evolving population")
         else:
@@ -292,31 +344,56 @@ class Population():
 
         for generation in gen_iter:
 
+            if verbose:
+                print(f"\n\n~~~GENERATION {generation} ~~~")
+
             # Select the portion of the population that will breed
-            breeders = max(2, np.ceil(self.size * breeding_pool).astype(int))
-            fit_organisms, history = self.get_fit_organisms(
-                amount = breeders,
+            fitnesses = self.get_fitness(
                 multiprocessing = multiprocessing,
                 workers = workers,
-                progress_bar = (progress_bars == 2),
-                history = history
+                progress_bar = (progress_bars == 2 and not verbose),
+                history = history,
+                generation = generation
                 )
 
             if verbose:
-                print("\n\nBreeding pool:")
-                print(np.array([org.get_genome() for org in fit_organisms]))
+                print("\nFitness values:")
+                print(fitnesses)
+
+            history.add_entry(
+                genomes = self.get_genomes(),
+                fitnesses = fitnesses,
+                generation = generation
+                )
+
+            # Select elites 
+            elites_amt = np.ceil(self.size * elitism_rate).astype(int)
+            if elitism_rate:
+                elites = self.sample(fitnesses, amount = elites_amt)
+
+                if verbose:
+                    print(f"\nElite pool, of size {elites_amt}:")
+                    print(np.array([org.get_genome() for org in elites]))
+
+            breeders_amt = max(2, np.ceil(self.size*breeding_rate).astype(int))
+            breeders = self.sample(fitnesses, amount = breeders_amt)
+
+            if verbose:
+                print(f"\nBreeding pool, of size {breeders_amt}:")
+                print(np.array([org.get_genome() for org in breeders]))
                 print("\nBreeding...")
 
             # Breed until we reach the same size
-            parents = np.random.choice(fit_organisms, (self.size, 2))
+            children_amt = self.size - elites_amt
+            parents = np.random.choice(breeders, (self.size, 2))
             children = np.array([parents[i, 0].breed(parents[i, 1])
-                for i in range(self.size)])
+                for i in range(children_amt)])
 
             # Find the mutation pool
-            mutators = np.less(np.random.random(self.size), mutation_pool)
+            mutators = np.less(np.random.random(children_amt), mutation_rate)
 
             if verbose:
-                print("\n\nMutation pool:")
+                print(f"\nMutation pool, of size {children[mutators].size}:")
                 print(np.array([c.get_genome() for c in children[mutators]]))
                 print("\nMutating...")
 
@@ -325,15 +402,19 @@ class Population():
                 mutator.mutate()
 
             # The children constitutes our new generation
-            self.population = children
+            if elitism_rate:
+                self.population = np.append(children, elites)
+            else:
+                self.population = children
             
             if verbose:
-                print(f"\nMean fitness for previous generation: " \
-                      f"{np.mean(history.fitness_history[-1])}")
-                print(f"Std fitness for previous generation: " \
-                      f"{np.std(history.fitness_history[-1])}")
-                print(f"Fittest so far: {history.fittest}")
-        
+                print(f"\nNew population, of size {self.population.size}:")
+                print(self.get_genomes())
+                print(f"\nMean fitness: {np.mean(fitnesses)}")
+                print(f"Std fitness: {np.std(fitnesses)}")
+                print(f"Fittest so far: {history.fittest}\n")
+                input("Press Enter to continue...")
+
         # Print a blank line if we're using two progress bars 
         if progress_bars == 2:
             print("")
@@ -341,14 +422,24 @@ class Population():
         return history
 
 class History():
-    ''' History of a population's evolution. '''
+    ''' History of a population's evolution.
+        
+        INPUT
+            (int) population_size
+            (int) generations
+            (int or np.nan) memory = 1: how many generations the population
+                            can look back to avoid redundant fitness
+                            computations.
+    '''
 
-    def __init__(self):
-        self.genome_history = []
-        self.fitness_history = []
+    def __init__(self, population_size, generations, memory = 1):
+        if memory == np.inf:
+            memory = generations
+        self.genome_history = np.empty((memory, population_size), dict)
+        self.fitness_history = np.empty((generations, population_size), float)
         self.fittest = {'genome' : None, 'fitness' : 0}
     
-    def add_entry(self, genomes, fitnesses):
+    def add_entry(self, genomes, fitnesses, generation):
         ''' Add genomes and fitnesses to the history. 
 
         INPUT
@@ -356,27 +447,42 @@ class History():
             (ndarray) fitnesses: array of fitnesses
         '''
 
-        self.genome_history.append(genomes)
-        self.fitness_history.append(fitnesses)
-
         if max(fitnesses) > self.fittest['fitness']:
             self.fittest['genome'] = genomes[np.argmax(fitnesses)]
             self.fittest['fitness'] = max(fitnesses)
 
+        np.roll(self.genome_history, 1, axis = 0)
+        self.genome_history[0, :] = genomes
+        self.fitness_history[generation, :] = fitnesses
+
         return self
 
     def save_log(self, file_name = 'log.txt'):
-        ''' Save a log of the history to the given file name. '''
+        ''' Save a log of the history to the given file name.
+
+        INPUT
+            (string) file_name = 'log.txt'
+        '''
         with open(file_name, 'w+') as f:
             f.write("EVOLUTION LOG\n\n")
             f.write(f"Fittest genome across all generations, " \
                     f"with fitness {np.around(self.fittest['fitness'], 2)}:\n")
             f.write(f"{self.fittest['genome']}\n\n")
 
+            f.write("Best genome by generation:\n")
+            for generation in range(self.fitness_history.shape[0]):
+                genomes = self.genome_history[generation, :]
+                fitnesses = self.fitness_history[generation, :]
+                f.write(f"Generation {generation}\t" \
+                        f"fitness {np.max(fitnesses)}:\n")
+                f.write(f"{genomes[np.argmax(fitnesses)]}\n")
+            f.write("\n")
+
+            f.write("All evolution data:\n\n")
             for generation in range(len(self.genome_history)):
                 f.write(f"~~~ Generation {generation} ~~~\n")
-                genomes = np.asarray(self.genome_history[generation])
-                fitnesses = np.asarray(self.fitness_history[generation])
+                genomes = self.genome_history[generation, :]
+                fitnesses = self.fitness_history[generation, :]
                 sorted_idx = np.argsort(fitnesses)[::-1]
                 for (i, j) in enumerate(sorted_idx):
                     f.write(f"Genome {i} with fitness " \
@@ -384,30 +490,30 @@ class History():
                         f"{genomes[j]}\n")
                 f.write("\n")
 
-    def plot(self, title = 'Average fitness by generation',
-        xlabel = 'Generations', ylabel = 'Average fitness',
+    def plot(self, title = 'Fitness by generation',
+        xlabel = 'Generations', ylabel = 'Fitness',
         file_name = None, show_plot = True, show_max = False,
         discrete = False, legend = True, legend_location = 'lower right'):
         ''' Plot the fitness values.
 
         INPUT
-            (string) title: title on the plot
-            (string) xlabel: label on the x-axis
-            (string) ylabel: label on the y-axis
-            (string) file_name: file name to save the plot to
-            (bool) show_plot: show plot as a pop-up
-            (bool) show_max: show max value line on plot
-            (bool) discrete: make the error plot discrete
-            (bool) legend: show legend
-            (string or int) legend_location: legend location, either as e.g.
-                            'lower right' or a an integer between 0 and 10
+            (string) title = 'Fitness by generation'
+            (string) xlabel = 'Generations': label on the x-axis
+            (string) ylabel = 'Fitness': label on the y-axis
+            (string) file_name = None: file name to save the plot to
+            (bool) show_plot = True: show plot as a pop-up
+            (bool) show_max = True: show max value line on plot
+            (bool) discrete = False: make the error plot discrete
+            (bool) legend = True: show legend
+            (string or int) legend_location = 'lower right': legend location, 
+                            either as e.g. 'lower right' or as an integer
+                            between 0 and 10
         '''
 
-        gens = len(self.fitness_history)
-        maxs = np.array([np.max(fit) for fit in self.fitness_history])
-        mins = np.array([np.min(fit) for fit in self.fitness_history])
-        means = np.array([np.mean(fit) for fit in self.fitness_history])
-        stds = np.array([np.std(fit) for fit in self.fitness_history])
+        fits = self.fitness_history
+        gens = fits.shape[0]
+        means = np.mean(fits, axis = 1)
+        stds = np.std(fits, axis = 1)
 
         plt.style.use("ggplot")
         plt.figure()
@@ -418,6 +524,7 @@ class History():
         xs = range(1, gens + 1)
 
         if show_max:
+            maxs = np.array([np.max(fits[gen, :]) for gen in range(gens)])
             plt.plot(xs, maxs, '--', color = 'blue', label = 'max')
 
         if discrete:
