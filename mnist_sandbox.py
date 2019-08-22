@@ -19,7 +19,8 @@ fitness_fn = ns.get_nn_fitness_fn(
 fnns = ns.Population(
     genus = ns.FNN(),
     fitness_fn = fitness_fn,
-    size = 50
+    size = 50,
+    post_fn = lambda x: 1 - (1 / x)
     )
 
 history = fnns.evolve(generations = 20, multiprocessing = False)
@@ -27,10 +28,7 @@ history = fnns.evolve(generations = 20, multiprocessing = False)
 print("Best overall genome is:")
 print(history.fittest)
 
-history.save_log(file_name = '/home/dn16382/pCloudDrive/mnist_log.txt')
-
 history.plot(
-    title = "Average 1 / (1 - val_accuracy) by generation",
-    file_name = '/home/dn16382/pCloudDrive/mnist_plot.png',
-    show_plot = False
+    title = "Average validation accuracy by generation",
+    file_name = '/home/dn16382/pCloudDrive/mnist_plot.png'
   )

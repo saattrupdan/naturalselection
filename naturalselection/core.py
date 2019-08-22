@@ -131,15 +131,18 @@ class Population():
         (Genus) genus
         (int) size
         (function) fitness_fn
+        (function) post_fn: Function to be applied to fitness values in plots
         (dict) initial_genome = None: this will construct a homogenous
                population only consisting of the initial genome, for a
                warm start
         '''
 
-    def __init__(self, genus, size, fitness_fn, initial_genome = None):
+    def __init__(self, genus, size, fitness_fn, post_fn = None,
+        initial_genome = None):
 
         self.genus = genus
         self.size = size
+        self.post_fn = post_fn
         
         # Fitness function must be pickleable, so in particular it
         # cannot be a lambda expression
@@ -333,7 +336,8 @@ class Population():
         history = History(
             population_size = self.size,
             generations = generations,
-            memory = memory
+            memory = memory,
+            post_fn = self.post_fn
             )
 
         if progress_bars and not verbose:
@@ -432,7 +436,10 @@ class History():
                             computations.
     '''
 
-    def __init__(self, population_size, generations, memory = 1):
+    def __init__(self, population_size, generations, memory = 1,
+        post_fn = None):
+
+        self.post_fn = post_fn
         if memory == np.inf:
             memory = generations
         self.genome_history = np.empty((memory, population_size), dict)
@@ -457,43 +464,10 @@ class History():
 
         return self
 
-    def save_log(self, file_name = 'log.txt'):
-        ''' Save a log of the history to the given file name.
-
-        INPUT
-            (string) file_name = 'log.txt'
-        '''
-        with open(file_name, 'w+') as f:
-            f.write("EVOLUTION LOG\n\n")
-            f.write(f"Fittest genome across all generations, " \
-                    f"with fitness {np.around(self.fittest['fitness'], 2)}:\n")
-            f.write(f"{self.fittest['genome']}\n\n")
-
-            f.write("Best genome by generation:\n")
-            for generation in range(self.fitness_history.shape[0]):
-                genomes = self.genome_history[generation, :]
-                fitnesses = self.fitness_history[generation, :]
-                f.write(f"Generation {generation}\t" \
-                        f"fitness {np.max(fitnesses)}:\n")
-                f.write(f"{genomes[np.argmax(fitnesses)]}\n")
-            f.write("\n")
-
-            f.write("All evolution data:\n\n")
-            for generation in range(len(self.genome_history)):
-                f.write(f"~~~ Generation {generation} ~~~\n")
-                genomes = self.genome_history[generation, :]
-                fitnesses = self.fitness_history[generation, :]
-                sorted_idx = np.argsort(fitnesses)[::-1]
-                for (i, j) in enumerate(sorted_idx):
-                    f.write(f"Genome {i} with fitness " \
-                        f"{np.around(fitnesses[j], 2)}: " \
-                        f"{genomes[j]}\n")
-                f.write("\n")
-
-    def plot(self, title = 'Fitness by generation',
-        xlabel = 'Generations', ylabel = 'Fitness',
-        file_name = None, show_plot = True, show_max = False,
-        discrete = False, legend = True, legend_location = 'lower right'):
+    def plot(self, title = 'Fitness by generation', xlabel = 'Generations',
+        ylabel = 'Fitness', file_name = None, show_plot = True,
+        show_max = True, discrete = False, legend = True,
+        legend_location = 'lower right'):
         ''' Plot the fitness values.
 
         INPUT
@@ -509,8 +483,10 @@ class History():
                             either as e.g. 'lower right' or as an integer
                             between 0 and 10
         '''
-
+        
         fits = self.fitness_history
+        if self.post_fn:
+            fits = np.vectorize(self.post_fn)(fits)
         gens = fits.shape[0]
         means = np.mean(fits, axis = 1)
         stds = np.std(fits, axis = 1)
