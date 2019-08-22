@@ -63,7 +63,7 @@ Here is an example of finding a vanilla feedforward neural network to model [MNI
 ...   )
 >>> history = fnns.evolve(generations = 20)
 Evolving population: 100%|██████████████████| 20/20 [2:20:14<00:00, 699.72s/it]
-Computing fitness for generation: 100%|████████| 23/23 [06:57<00:00, 20.05s/it]
+Computing fitness for gen 20: 100%|████████████| 23/23 [06:57<00:00, 20.05s/it]
 >>> 
 >>> history.fittest
 {'genome': {'optimizer': 'nadam', 'hidden_activation': 'relu',
@@ -89,7 +89,7 @@ The algorithm follows the standard blueprint for a genetic algorithm as e.g. des
 2. Fitness values for all organisms in the population are computed
 3. A subset of the population (the *elite pool*) is selected
 4. A subset of the population (the *breeding pool*) is selected
-5. Pairs from the breeding pool are chosen, who will breed to create a new ``child'' organism with genome a combination of the ``parent'' organisms. Continue breeding until the the children and the elites constitute a population of the same size as the original
+5. Pairs from the breeding pool are chosen, who will breed to create a new "child" organism with genome a combination of the "parent" organisms. Continue breeding until the the children and the elites constitute a population of the same size as the original
 6. A subset of the children (the *mutation pool*) is selected
 7. Every child in the mutation pool is mutated, meaning that they will have their genome altered in some way
 8. Go back to step 2
@@ -117,11 +117,11 @@ This happens in the `get_fitness` function which is called by the `evolve` funct
 ```python
 >>> history = fnns.evolve(generations = 20, workers = 2)
 Evolving population: 100%|██████████████████| 20/20 [2:20:14<00:00, 699.72s/it]
-Computing fitness for generation: 100%|████████| 23/23 [06:57<00:00, 20.05s/it]
+Computing fitness for gen 20: 100%|████████████| 23/23 [06:57<00:00, 20.05s/it]
 >>>
-history = fnns.evolve(generations = 20, multiprocessing = False)
+>>> history = fnns.evolve(generations = 20, multiprocessing = False)
 Evolving population: 100%|██████████████████| 20/20 [2:20:14<00:00, 699.72s/it]
-Computing fitness for generation: 100%|████████| 23/23 [06:57<00:00, 20.05s/it]
+Computing fitness for gen 20: 100%|████████████| 23/23 [06:57<00:00, 20.05s/it]
 ```
 
 ### Steps 3 & 4: Selecting elite pool and breeding pool
@@ -134,7 +134,7 @@ In this implementation the parent organisms are simply chosen uniformly at rando
 
 ### Step 6: Selection of mutation pool
 
-The mutation pool is chosen uniformly at random in contrast with the other two pools, as otherwise we would suddenly be more likely to ``mutate away'' many of the good genes of our fittest organisms. The default `mutation_rate` is 20%.
+The mutation pool is chosen uniformly at random in contrast with the other two pools, as otherwise we would suddenly be more likely to "mutate away" many of the good genes of our fittest organisms. The default `mutation_rate` is 20%.
 
 ### Step 7: Mutation
 
