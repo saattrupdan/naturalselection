@@ -1,4 +1,4 @@
-# NaturalSelection <img src="https://filedn.com/lRBwPhPxgV74tO0rDoe8SpH/naturalselection_data/logo.png" width="100" height="100" alt="Logo of green flower"/>
+# NaturalSelection <img src="https://filedn.com/lRBwPhPxgV74tO0rDoe8SpH/naturalselection_data/logo.png" width="50" height="50" alt="Logo of green flower"/>
 
 An all-purpose pythonic genetic algorithm, which also has built-in hyperparameter tuning support for neural networks.
 
