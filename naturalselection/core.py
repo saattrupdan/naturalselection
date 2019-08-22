@@ -310,7 +310,7 @@ class Population():
 
     def evolve(self, generations = 1, breeding_rate = 0.8,
         mutation_rate = 0.2, elitism_rate = 0.05, multiprocessing = True,
-        workers = cpu_count(), progress_bars = 2, memory = 1, verbose = 0):
+        workers = cpu_count(), progress_bars = 2, memory = 20, verbose = 0):
         ''' Evolve the population.
 
         INPUT
@@ -327,9 +327,9 @@ class Population():
             (int) progress_bars = 2: number of progress bars to show, where 1
                   only shows the main evolution progress, and 2 shows both
                   the evolution and the fitness computation per generation
-            (int or np.nan) memory = 1: how many generations the population
-                            can look back to avoid redundant fitness
-                            computations.
+            (int or string) memory = 20: how many generations the population 
+                            can look back to avoid redundant fitness 
+                            computations, where 'inf' means unlimited memory.
             (int) verbose = 0: verbosity mode
         '''
     
@@ -431,18 +431,21 @@ class History():
         INPUT
             (int) population_size
             (int) generations
-            (int or np.nan) memory = 1: how many generations the population
-                            can look back to avoid redundant fitness
-                            computations.
+            (int or string) memory = 20: how many generations the
+                            population can look back to avoid redundant
+                            fitness computations, where 'inf' means unlimited
+                            memory.
     '''
 
-    def __init__(self, population_size, generations, memory = 1,
+    def __init__(self, population_size, generations, memory = 20,
         post_fn = None):
 
         self.post_fn = post_fn
-        if memory == np.inf:
-            memory = generations
-        self.genome_history = np.empty((memory, population_size), dict)
+        if memory == 'inf' or memory > generations:
+            self.memory = generations
+        else:
+            self.memory = memory
+        self.genome_history = np.empty((self.memory, population_size), dict)
         self.fitness_history = np.empty((generations, population_size), float)
         self.fittest = {'genome' : None, 'fitness' : 0}
     
@@ -456,7 +459,7 @@ class History():
 
         if max(fitnesses) > self.fittest['fitness']:
             self.fittest['genome'] = genomes[np.argmax(fitnesses)]
-            self.fittest['fitness'] = max(fitnesses)
+            self.fittest['fitness'] = self.post_fn(max(fitnesses))
 
         np.roll(self.genome_history, 1, axis = 0)
         self.genome_history[0, :] = genomes

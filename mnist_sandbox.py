@@ -23,7 +23,11 @@ fnns = ns.Population(
     post_fn = lambda x: 1 - (1 / x)
     )
 
-history = fnns.evolve(generations = 20, multiprocessing = False)
+history = fnns.evolve(
+    generations = 20,
+    multiprocessing = False,
+    memory = 'inf'
+    )
 
 print("Best overall genome is:")
 print(history.fittest)

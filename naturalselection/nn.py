@@ -26,7 +26,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 
 class FNN(Genus):
-    ''' Feed-forward neural network genus.
+    ''' Feedforward neural network genus.
 
     INPUT:
         (iterable) number_of_hidden_layers: numbers of hidden layers
@@ -92,10 +92,10 @@ def train_fnn(fnn, train_val_sets, loss_fn = 'binary_crossentropy',
     output_activation = 'sigmoid', score = 'accuracy',
     max_epochs = 1000000, patience = 5, min_change = 1e-4,
     max_training_time = None, verbose = False):
-    ''' Train a feed-forward neural network and output the score.
+    ''' Train a feedforward neural network and output the score.
     
     INPUT
-        (FNN) fnn: a feed-forward neural network genus
+        (FNN) fnn: a feedforward neural network genus
         (tuple) train_val_sets: a quadruple of the form
                 (X_train, Y_train, X_val, Y_val)
         (string) loss_fn: keras loss function
