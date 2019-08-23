@@ -137,7 +137,7 @@ class Population():
                warm start
         '''
 
-    def __init__(self, genus, size, fitness_fn, post_fn = None,
+    def __init__(self, genus, size, fitness_fn, post_fn = lambda x: x,
         initial_genome = None):
 
         self.genus = genus
@@ -229,7 +229,7 @@ class Population():
             unique_orgs = pop[unique_indices]
 
             if isinstance(generation, int):
-                progress_text = f"Computing fitness for gen {generation}"
+                progress_text = f"Computing fitness for gen {generation + 1}"
             else:
                 progress_text = f"Computing fitness"
 
@@ -438,7 +438,7 @@ class History():
     '''
 
     def __init__(self, population_size, generations, memory = 20,
-        post_fn = None):
+        post_fn = lambda x: x):
 
         self.post_fn = post_fn
         if memory == 'inf' or memory > generations:
@@ -487,9 +487,7 @@ class History():
                             between 0 and 10
         '''
         
-        fits = self.fitness_history
-        if self.post_fn:
-            fits = np.vectorize(self.post_fn)(fits)
+        fits = np.vectorize(self.post_fn)(self.fitness_history)
         gens = fits.shape[0]
         means = np.mean(fits, axis = 1)
         stds = np.std(fits, axis = 1)

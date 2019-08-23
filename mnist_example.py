@@ -34,5 +34,5 @@ print(history.fittest)
 
 history.plot(
     title = "Average validation accuracy by generation",
-    file_name = '/home/dn16382/pCloudDrive/mnist_plot.png'
+    file_name = '/home/leidem/pCloudDrive/mnist_plot.png'
   )

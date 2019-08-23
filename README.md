@@ -23,7 +23,7 @@ Here is a toy example optimising a pair of numbers with respect to division.
 ...
 >>> pairs = ns.Population(genus = Pair, size = 100, fitness_fn = division)
 >>> history = pairs.evolve(generations = 50, progress_bars = 1)
-Evolving population: 100%|█████████████████████| 50/50 [00:19<00:00,  5.03it/s]
+Evolving population: 100%|█████████████████████| 50/50 [00:09<00:00,  5.28it/s]
 >>>
 >>> history.fittest
 {'genome': {'x': 9974, 'y': 4}, 'fitness': 2493.5}
@@ -62,15 +62,15 @@ Here is an example of finding a vanilla feedforward neural network to model [MNI
 ...   size = 50
 ...   )
 >>> history = fnns.evolve(generations = 20)
-Evolving population: 100%|██████████████████| 20/20 [2:20:14<00:00, 699.72s/it]
-Computing fitness for gen 20: 100%|████████████| 23/23 [06:57<00:00, 20.05s/it]
+Evolving population: 100%|██████████████████| 20/20 [?:??:??<00:00, ???.??s/it]
+Computing fitness for gen 20: 100%|████████████| 23/23 [??:??<00:00, ??.??s/it]
 >>> 
 >>> history.fittest
-{'genome': {'optimizer': 'nadam', 'hidden_activation': 'relu',
-'batch_size': 256, 'initializer': 'glorot_uniform', 'input_dropout': 0.2,
-'layer0': 64, 'dropout0': 0.0, 'layer1': 256, 'dropout1': 0.0, 'layer2': 256,
-'dropout2': 0.1, 'layer3': 128, 'dropout3': 0.0, 'layer4': 32, 'dropout4': 0.2}
-, 'fitness': 0.9646}
+{'genome': {'optimizer': ?, 'hidden_activation': ?,
+'batch_size': ?, 'initializer': ?, 'input_dropout': ?,
+'layer0': ?, 'dropout0': ?, 'layer1': ?, 'dropout1': ?, 'layer2': ?,
+'dropout2': ?, 'layer3': ?, 'dropout3': ?, 'layer4': ?, 'dropout4': ?}
+, 'fitness': ?}
 >>> 
 >>> history.plot(
 ...   title = "Average accuracy by generation",
@@ -107,22 +107,15 @@ The population is simply just a uniformly random sample of the possible genome v
 ...   fitness_fn = division,
 ...   initial_genome = {'x' : 9750, 'y' : 15}
 ...   )
-Evolving population: 100%|███████████████████| 100/100 [00:19<00:00,  5.03it/s]
+Evolving population: 100%|███████████████████| 100/100 [00:09<00:00,  5.28it/s]
+>>> 
+>>> self.fittest
+{'genome' : {'x' : 9846, 'y' : 1}, 'fitness' : 9846.0}
 ```
 
 ### Step 2: Compute fitness values
 
 This happens in the `get_fitness` function which is called by the `evolve` function. These computations will by default be computed in parallel for each CPU core, so in the MNIST example above this will require 4-5gb RAM. Alternatively, the number of parallel computations can be explicitly set by setting `workers` to a small value, or disable the parallel computations completely by setting `multiprocessing = False`.
-
-```python
->>> history = fnns.evolve(generations = 20, workers = 2)
-Evolving population: 100%|██████████████████| 20/20 [2:20:14<00:00, 699.72s/it]
-Computing fitness for gen 20: 100%|████████████| 23/23 [06:57<00:00, 20.05s/it]
->>>
->>> history = fnns.evolve(generations = 20, multiprocessing = False)
-Evolving population: 100%|██████████████████| 20/20 [2:20:14<00:00, 699.72s/it]
-Computing fitness for gen 20: 100%|████████████| 23/23 [06:57<00:00, 20.05s/it]
-```
 
 ### Steps 3 & 4: Selecting elite pool and breeding pool
 
