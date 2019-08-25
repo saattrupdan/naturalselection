@@ -48,21 +48,21 @@ We can also easily solve the classical [OneMax problem](http://tracer.lcc.uma.es
 >>>
 >>> bitstrings = ns.Population(
 ...   genus = BitString,
-...   size = 300,
+...   size = 2,
 ...   fitness_fn = sum_bits
 ...   )
 >>> 
 >>> history = bitstrings.evolve(
-...   generations = 1000,
+...   generations = 10000,
 ...   goal = 100, 
 ...   progress_bars = 1
 ...   )
-Evolving population: 46%|███████       | 460/1000 [2:09:49<2:16:59,  15.22s/it]
+Evolving population: 45%|████████         | 4480/10000 [01:00<01:58, 46.43it/s]
 >>> 
 >>> history.plot()
 ```
 
-![Plot showing fitness value over ? generations, converging steadily to the optimal filled out sequence of ones.](https://filedn.com/lRBwPhPxgV74tO0rDoe8SpH/naturalselection_data/onemax_example.png)
+![Plot showing fitness value over 4500 generations, converging steadily to the optimal filled out sequence of ones.](https://filedn.com/lRBwPhPxgV74tO0rDoe8SpH/naturalselection_data/onemax_example.png)
 
 
 Lastly, here is an example of finding a vanilla feedforward neural network to model [MNIST](https://en.wikipedia.org/wiki/MNIST_database).

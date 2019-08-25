@@ -345,7 +345,7 @@ class Population():
             post_fn = self.post_fn
             )
 
-        if progress_bars and not verbose:
+        if progress_bars and not verbose == 2:
             gen_iter = trange(generations)
             gen_iter.set_description("Evolving population")
         else:
@@ -357,23 +357,23 @@ class Population():
                 history.fitness_history = \
                     history.fitness_history[:generation, :]
                 # Close tqdm iterator
-                if progress_bars and not verbose:
+                if progress_bars and not verbose == 2:
                     gen_iter.close()
                 break
 
-            if verbose:
+            if verbose == 2:
                 print(f"\n\n~~~GENERATION {generation} ~~~")
 
             # Select the portion of the population that will breed
             fitnesses = self.get_fitness(
                 multiprocessing = multiprocessing,
                 workers = workers,
-                progress_bar = (progress_bars == 2 and not verbose),
+                progress_bar = (progress_bars == 2 and not verbose == 2),
                 history = history,
                 generation = generation
                 )
 
-            if verbose:
+            if verbose == 2:
                 print("\nFitness values:")
                 print(fitnesses)
 
@@ -388,14 +388,14 @@ class Population():
             if elitism_rate:
                 elites = self.sample(fitnesses, amount = elites_amt)
 
-                if verbose:
+                if verbose == 2:
                     print(f"\nElite pool, of size {elites_amt}:")
                     print(np.array([org.get_genome() for org in elites]))
 
             breeders_amt = max(2, np.ceil(self.size*breeding_rate).astype(int))
             breeders = self.sample(fitnesses, amount = breeders_amt)
 
-            if verbose:
+            if verbose == 2:
                 print(f"\nBreeding pool, of size {breeders_amt}:")
                 print(np.array([org.get_genome() for org in breeders]))
                 print("\nBreeding...")
@@ -409,7 +409,7 @@ class Population():
             # Find the mutation pool
             mutators = np.less(np.random.random(children_amt), mutation_rate)
 
-            if verbose:
+            if verbose == 2:
                 print(f"\nMutation pool, of size {children[mutators].size}:")
                 print(np.array([c.get_genome() for c in children[mutators]]))
                 print("\nMutating...")
@@ -424,12 +424,18 @@ class Population():
             else:
                 self.population = children
             
-            if verbose:
+            if verbose == 2:
                 print(f"\nNew population, of size {self.population.size}:")
                 print(self.get_genomes())
                 print(f"\nMean fitness: {np.mean(fitnesses)}")
                 print(f"Std fitness: {np.std(fitnesses)}")
                 print(f"Fittest so far: {history.fittest}\n")
+
+            if verbose:
+                print("Best genome so far:")
+                print(history.fittest)
+
+            if verbose == 2:
                 input("Press Enter to continue...")
 
         # Print a blank line if we're using two progress bars 
@@ -484,7 +490,7 @@ class History():
     def plot(self, title = 'Fitness by generation', xlabel = 'Generations',
         ylabel = 'Fitness', file_name = None, show_plot = True,
         show_max = True, discrete = False, legend = True,
-        legend_location = 'lower right'):
+        legend_location = 'lower right', max_points = 100):
         ''' Plot the fitness values.
 
         INPUT
@@ -499,30 +505,35 @@ class History():
             (string or int) legend_location = 'lower right': legend location, 
                             either as e.g. 'lower right' or as an integer
                             between 0 and 10
+            (int) max_points = 100: maximum number of points on the plot
         '''
         
         fits = np.vectorize(self.post_fn)(self.fitness_history)
         gens = fits.shape[0]
         means = np.mean(fits, axis = 1)
         stds = np.std(fits, axis = 1)
+        xs = range(gens)
+        if show_max:
+            maxs = np.array([np.max(fits[gen, :]) for gen in xs])
+
+        if gens > max_points:
+            xs = np.linspace(0, gens - 1, num = max_points).astype(int)
 
         plt.style.use("ggplot")
         plt.figure()
-        plt.xlim(0, gens + 1)
+        plt.xlim(0, gens)
         plt.title(title)
         plt.xlabel(xlabel)
         plt.ylabel(ylabel)
-        xs = range(1, gens + 1)
 
         if show_max:
-            maxs = np.array([np.max(fits[gen, :]) for gen in range(gens)])
-            plt.plot(xs, maxs, '--', color = 'blue', label = 'max')
+            plt.plot(xs, maxs[xs], '--', color = 'blue', label = 'max')
 
         if discrete:
-            plt.errorbar(xs, means, stds, fmt = 'ok', label = 'mean and std')
+            plt.errorbar(xs, means[xs], stds[xs], fmt = 'ok', label = 'mean and std')
         else:
-            plt.plot(xs, means, '-', color = 'black', label = 'mean')
-            plt.fill_between(xs, means - stds, means + stds, alpha = 0.2,
+            plt.plot(xs, means[xs], '-', color = 'black', label = 'mean')
+            plt.fill_between(xs, means[xs] - stds[xs], means[xs] + stds[xs], alpha = 0.2,
                 color = 'gray', label = 'std')
 
         if legend:

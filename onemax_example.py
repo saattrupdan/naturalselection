@@ -7,10 +7,10 @@ def sum_bits(bitstring):
 
 bitstrings = ns.Population(
   genus = BitString,
-  size = 300,
+  size = 2,
   fitness_fn = sum_bits
   )
 
-history = bitstrings.evolve(generations = 1000, progress_bars = 1, goal = 100)
+history = bitstrings.evolve(generations = 10000, progress_bars = 1, goal = 100)
 
 history.plot()
