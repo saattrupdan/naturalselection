@@ -185,10 +185,11 @@ class Population():
             except TypeError:
                 pass
             return x
+        def immute_dict(d):
+            return {key : make_immutable(val) for (key, val) in d.items()}
 
         unique_genomes = np.array([dict(dna) for dna in
-            set(frozenset({key : make_immutable(val)
-            for (key, val) in genome.items()}.items())
+            set(frozenset(immute_dict(genome).items())
             for genome in self.get_genomes())
             ])
 
@@ -217,8 +218,7 @@ class Population():
         # Pull out the organisms with the unique genomes
         unique_indices = np.array([
             np.min(np.array([idx for (idx, org) in enumerate(pop)
-                if {key : make_immutable(val) for (key, val)
-                in org.get_genome().items()} == genome
+                if immute_dict(org.get_genome()) == immute_dict(genome)
                 ]))
             for genome in unique_genomes
             ])
@@ -264,7 +264,9 @@ class Population():
             if i not in unique_indices and i not in past_indices:
                 prev_unique_idx = np.min(np.array([idx
                     for idx in unique_indices
-                    if org.get_genome() == pop[idx].get_genome()]))
+                    if immute_dict(org.get_genome()) == \
+                        immute_dict(pop[idx].get_genome())
+                    ]))
                 fitnesses[i] = fitnesses[prev_unique_idx]
     
         return fitnesses
@@ -310,7 +312,8 @@ class Population():
 
     def evolve(self, generations = 1, breeding_rate = 0.8,
         mutation_rate = 0.2, elitism_rate = 0.05, multiprocessing = True,
-        workers = cpu_count(), progress_bars = 2, memory = 20, verbose = 0):
+        workers = cpu_count(), progress_bars = 2, memory = 20, goal = None,
+        verbose = 0):
         ''' Evolve the population.
 
         INPUT
@@ -330,6 +333,8 @@ class Population():
             (int or string) memory = 20: how many generations the population 
                             can look back to avoid redundant fitness 
                             computations, where 'inf' means unlimited memory.
+            (float) goal = None: stop when fitness is above or equal to this
+                    value
             (int) verbose = 0: verbosity mode
         '''
     
@@ -347,6 +352,14 @@ class Population():
             gen_iter = range(generations)
 
         for generation in gen_iter:
+
+            if history.fittest['fitness'] >= goal:
+                history.fitness_history = \
+                    history.fitness_history[:generation, :]
+                # Close tqdm iterator
+                if progress_bars and not verbose:
+                    gen_iter.close()
+                break
 
             if verbose:
                 print(f"\n\n~~~GENERATION {generation} ~~~")
@@ -457,9 +470,10 @@ class History():
             (ndarray) fitnesses: array of fitnesses
         '''
 
-        if max(fitnesses) > self.fittest['fitness']:
-            self.fittest['genome'] = genomes[np.argmax(fitnesses)]
-            self.fittest['fitness'] = self.post_fn(max(fitnesses))
+        post_fitnesses = np.vectorize(self.post_fn)(fitnesses)
+        if max(post_fitnesses) > self.fittest['fitness']:
+            self.fittest['genome'] = genomes[np.argmax(post_fitnesses)]
+            self.fittest['fitness'] = max(post_fitnesses)
 
         np.roll(self.genome_history, 1, axis = 0)
         self.genome_history[0, :] = genomes

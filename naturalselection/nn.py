@@ -201,9 +201,8 @@ def train_fnn(fnn, train_val_sets, loss_fn = 'binary_crossentropy',
 def get_nn_fitness_fn(train_val_sets, loss_fn, number_of_inputs = 'infer',
     number_of_outputs = 'infer', output_activation = 'sigmoid',
     score = 'accuracy', max_epochs = 1000000, patience = 5,
-    min_change = 1e-4, max_training_time = None, verbose = False,
-    kind = 'fnn'):
-    ''' Return a neural network fitness function of the specified kind.
+    min_change = 1e-4, max_training_time = None, verbose = False):
+    ''' Return a neural network fitness function.
     
     INPUT
         (tuple) train_val_sets: a quadruple of the form
@@ -224,29 +223,27 @@ def get_nn_fitness_fn(train_val_sets, loss_fn, number_of_inputs = 'infer',
         (int) max_training_time: maximum number of seconds to train for,
               also training the final epoch after the time has run out
         (int) verbose: verbosity mode
-        (string) kind: type of neural network, can only be 'fnn' at the moment
 
     OUTPUT
         (function) fitness function, which will output 1 / score if score
-                   is 'loss', and otherwise 1 / (1 - score), to enable
-                   unbounded range
+                   is 'loss', and 1 / (1 - score) otherwise, to ensure 
+                   that the range is unbounded
     '''
 
-    if kind == 'fnn':
-        fitness_fn = partial(
-            train_fnn,
-            train_val_sets      = train_val_sets,
-            loss_fn             = loss_fn,
-            number_of_inputs    = number_of_inputs,
-            number_of_outputs   = number_of_outputs,
-            output_activation   = output_activation,
-            score               = score,
-            max_epochs          = max_epochs,
-            patience            = patience,
-            min_change          = min_change,
-            max_training_time   = max_training_time,
-            verbose             = verbose
-            )
+    fitness_fn = partial(
+        train_fnn,
+        train_val_sets      = train_val_sets,
+        loss_fn             = loss_fn,
+        number_of_inputs    = number_of_inputs,
+        number_of_outputs   = number_of_outputs,
+        output_activation   = output_activation,
+        score               = score,
+        max_epochs          = max_epochs,
+        patience            = patience,
+        min_change          = min_change,
+        max_training_time   = max_training_time,
+        verbose             = verbose
+        )
     
     return fitness_fn
 
