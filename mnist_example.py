@@ -32,6 +32,6 @@ print("Best overall genome is:")
 print(history.fittest)
 
 history.plot(
-    title = "Average validation accuracy by generation",
-    file_name = '/home/leidem/pCloudDrive/mnist_plot.png'
-  )
+    title = "Validation accuracy by generation",
+    ylabel = "Validation accuracy"
+    )

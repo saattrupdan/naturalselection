@@ -34,7 +34,7 @@ Evolving population: 100%|██████████████████
 ![Plot showing fitness value over 50 generations. The mean rises from 0 to 1500 in the first five generations, whereafter it slowly increases to roughly 2200. The maximum value converges to around 25000 after seven generations, and the standard deviation stays at around 700 throughout.](https://filedn.com/lRBwPhPxgV74tO0rDoe8SpH/naturalselection_data/numbers_example.png)
 
 
-We can also easily solve the classical [OneMax problem](http://tracer.lcc.uma.es/problems/onemax/onemax.html), which is about getting the algorithm to find the bit-string of a given length with all 1's. Here we set the `goal` parameter in the `evolve` function to be 100, to allow for early stopping if we do reach our goal before the maximum number of generations, which we here set to 1000.
+We can also easily solve the classical [OneMax problem](http://tracer.lcc.uma.es/problems/onemax/onemax.html), which is about finding the bit-string of a given length with all 1's. Here we set `goal=100` in the `evolve` function to allow for early stopping if we reach our goal before the maximum number of generations, which we here set to 1000.
 
 ```python
 >>> import naturalselection as ns
@@ -106,10 +106,7 @@ Computing fitness for gen 20: 100%|█████████████| 24/2
 'dropout2': 0.0, 'layer3': 256, 'dropout3': 0.3, 'layer4': 128,
 'dropout4': 0.0}, 'fitness': 0.9808}
 >>> 
->>> history.plot(
-...   title = "Average accuracy by generation",
-...   ylabel = "Average accuracy"
-...   )
+>>> history.plot(title = "Average validation accuracy by generation")
 ```
 
 ![Plot showing fitness value (which is accuracy in this case) over 20 generations. It converges to roughly 98% after 8 generations, and the maximum reaches that already from the first generation. The standard deviation also converges to almost zero.](https://filedn.com/lRBwPhPxgV74tO0rDoe8SpH/naturalselection_data/mnist_example.png)
