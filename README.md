@@ -62,7 +62,7 @@ Evolving population: 45%|████████         | 4480/10000 [01:00<01
 >>> history.plot()
 ```
 
-![Plot showing fitness value over 4500 generations, converging steadily to the optimal filled out sequence of ones.](https://filedn.com/lRBwPhPxgV74tO0rDoe8SpH/naturalselection_data/onemax_example.png)
+![Plot showing fitness value over 4500 generations, converging steadily to the optimal filled out sequence of ones.](https://filedn.com/lRBwPhPxgV74tO0rDoe8SpH/naturalselection_data/mnist_example.png)
 
 
 Lastly, here is an example of finding a vanilla feedforward neural network to model [MNIST](https://en.wikipedia.org/wiki/MNIST_database).
