@@ -19,12 +19,11 @@ fnns = ns.Population(
     genus = ns.FNN(),
     fitness_fn = fitness_fn,
     size = 50,
-    #post_fn = lambda x: 1 - (1 / x)
     )
 
 history = fnns.evolve(
     generations = 20,
-    multiprocessing = False,
+    verbose = 1
     )
 
 print("Best overall genome is:")
