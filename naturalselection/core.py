@@ -229,7 +229,7 @@ class Population():
             unique_orgs = pop[unique_indices]
 
             if isinstance(generation, int):
-                progress_text = f"Computing fitness for gen {generation + 1}"
+                progress_text = f"Computing fitness for gen {generation}"
             else:
                 progress_text = f"Computing fitness"
 
@@ -345,7 +345,7 @@ class Population():
             post_fn = self.post_fn
             )
 
-        if progress_bars and not verbose == 2:
+        if progress_bars:
             gen_iter = trange(generations)
             gen_iter.set_description("Evolving population")
         else:
@@ -353,28 +353,28 @@ class Population():
 
         for generation in gen_iter:
 
-            if history.fittest['fitness'] >= goal:
+            if goal and history.fittest['fitness'] >= goal:
                 history.fitness_history = \
                     history.fitness_history[:generation, :]
                 # Close tqdm iterator
-                if progress_bars and not verbose == 2:
+                if progress_bars:
                     gen_iter.close()
                 break
 
-            if verbose == 2:
-                print(f"\n\n~~~GENERATION {generation} ~~~")
+            if verbose >= 2:
+                print(f"\n\n~~~ GENERATION {generation} ~~~")
 
             # Select the portion of the population that will breed
             fitnesses = self.get_fitness(
                 multiprocessing = multiprocessing,
                 workers = workers,
-                progress_bar = (progress_bars == 2 and not verbose == 2),
+                progress_bar = (progress_bars >= 2),
                 history = history,
                 generation = generation
                 )
 
-            if verbose == 2:
-                print("\nFitness values:")
+            if verbose >= 2:
+                print("\n\nFitness values:")
                 print(fitnesses)
 
             history.add_entry(
@@ -388,14 +388,14 @@ class Population():
             if elitism_rate:
                 elites = self.sample(fitnesses, amount = elites_amt)
 
-                if verbose == 2:
+                if verbose >= 2:
                     print(f"\nElite pool, of size {elites_amt}:")
                     print(np.array([org.get_genome() for org in elites]))
 
             breeders_amt = max(2, np.ceil(self.size*breeding_rate).astype(int))
             breeders = self.sample(fitnesses, amount = breeders_amt)
 
-            if verbose == 2:
+            if verbose >= 2:
                 print(f"\nBreeding pool, of size {breeders_amt}:")
                 print(np.array([org.get_genome() for org in breeders]))
                 print("\nBreeding...")
@@ -409,7 +409,7 @@ class Population():
             # Find the mutation pool
             mutators = np.less(np.random.random(children_amt), mutation_rate)
 
-            if verbose == 2:
+            if verbose >= 2:
                 print(f"\nMutation pool, of size {children[mutators].size}:")
                 print(np.array([c.get_genome() for c in children[mutators]]))
                 print("\nMutating...")
@@ -424,7 +424,7 @@ class Population():
             else:
                 self.population = children
             
-            if verbose == 2:
+            if verbose >= 2:
                 print(f"\nNew population, of size {self.population.size}:")
                 print(self.get_genomes())
                 print(f"\nMean fitness: {np.mean(fitnesses)}")
@@ -435,11 +435,11 @@ class Population():
                 print("Best genome so far:")
                 print(history.fittest)
 
-            if verbose == 2:
+            if verbose >= 3:
                 input("Press Enter to continue...")
 
         # Print a blank line if we're using two progress bars 
-        if progress_bars == 2:
+        if progress_bars >= 2:
             print("")
 
         return history
@@ -530,11 +530,12 @@ class History():
             plt.plot(xs, maxs[xs], '--', color = 'blue', label = 'max')
 
         if discrete:
-            plt.errorbar(xs, means[xs], stds[xs], fmt = 'ok', label = 'mean and std')
+            plt.errorbar(xs, means[xs], stds[xs], fmt = 'ok', 
+                label = 'mean and std')
         else:
             plt.plot(xs, means[xs], '-', color = 'black', label = 'mean')
-            plt.fill_between(xs, means[xs] - stds[xs], means[xs] + stds[xs], alpha = 0.2,
-                color = 'gray', label = 'std')
+            plt.fill_between(xs, means[xs] - stds[xs], means[xs] + stds[xs],
+                alpha = 0.2, color = 'gray', label = 'std')
 
         if legend:
             plt.legend(loc = legend_location)

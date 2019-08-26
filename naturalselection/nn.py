@@ -98,14 +98,16 @@ def train_fnn(fnn, train_val_sets, loss_fn = 'binary_crossentropy',
         (FNN) fnn: a feedforward neural network genus
         (tuple) train_val_sets: a quadruple of the form
                 (X_train, Y_train, X_val, Y_val)
-        (string) loss_fn: keras loss function
+        (string) loss_fn: keras loss function, or a custom one
         (int or string) number_of_inputs: number of input features,
                         will infer from X_train if it's set to 'infer'
         (int or string) number_of_outputs: number of output features,
                         will infer from Y_train if it's set to 'infer'
         (string) output_activation: keras activation to be used on output
-        (string) the scoring used. Can be 'accuracy', 'f1', 'precision' or
-                 'recall', where the micro-average will be taken if there
+        (string) score: the scoring used. Can either be a custom scoring
+                 function which takes (Y_val, Y_hat) as inputs, or can be
+                 set to the predefined ones: 'accuracy', 'f1', 'precision'
+                 or 'recall', where the micro-average will be taken if there
                  are multiple outputs
         (int) max_epochs: maximum number of epochs to train for
         (int) patience: number of epochs with no progress above min_change
@@ -176,22 +178,28 @@ def train_fnn(fnn, train_val_sets, loss_fn = 'binary_crossentropy',
     else:
         average = None
 
-    Y_hat = np.greater(np.asarray(nn.predict(X_val, batch_size = 32)), 0.5)
+    Y_hat = nn.predict(X_val, batch_size = 32)
     if score == 'accuracy':
+        Y_hat = np.greater(Y_hat, 0.5)
         fitness = accuracy_score(Y_val, Y_hat)
-        fitness = np.divide(1, np.subtract(1, fitness))
+        #fitness = np.divide(1, np.subtract(1, fitness))
     elif score == 'f1':
+        Y_hat = np.greater(Y_hat, 0.5)
         fitness = f1_score(Y_val, Y_hat, average = average)
-        fitness = np.divide(1, np.subtract(1, fitness))
+        #fitness = np.divide(1, np.subtract(1, fitness))
     elif score == 'precision':
+        Y_hat = np.greater(Y_hat, 0.5)
         fitness = precision_score(Y_val, Y_hat, average = average)
-        fitness = np.divide(1, np.subtract(1, fitness))
+        #fitness = np.divide(1, np.subtract(1, fitness))
     elif score == 'recall':
+        Y_hat = np.greater(Y_hat, 0.5)
         fitness = recall_score(Y_val, Y_hat, average = average)
-        fitness = np.divide(1, np.subtract(1, fitness))
+        #fitness = np.divide(1, np.subtract(1, fitness))
     elif score == 'loss':
-        fitness = nn.evaluate(X_val, Y_val)
-        fitness = np.divide(1, fitness)
+        Y_hat = np.greater(Y_hat, 0.5)
+        fitness = np.divide(1, nn.evaluate(X_val, Y_val))
+    else:
+        fitness = score(Y_val, Y_hat)
     
     # Clear tensorflow session to avoid memory leak
     K.clear_session()
