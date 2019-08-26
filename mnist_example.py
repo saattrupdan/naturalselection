@@ -23,6 +23,7 @@ fnns = ns.Population(
 
 history = fnns.evolve(
     generations = 20,
+    multiprocessing = False,
     verbose = 1
     )
 
