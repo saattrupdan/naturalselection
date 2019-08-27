@@ -10,4 +10,4 @@ history = pairs.evolve(generations = 50, progress_bars = 1)
 
 print(history.fittest)
 
-history.plot(show_max = True)
+history.plot()
