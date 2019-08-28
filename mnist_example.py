@@ -7,7 +7,8 @@ Y_train = to_categorical(mnist.train_labels())
 X_val = ((mnist.test_images() / 255) - 0.5).reshape((-1, 784))
 Y_val = to_categorical(mnist.test_labels())
 
-fitness_fn = ns.get_nn_fitness_fn(
+fnns = ns.FNNs(
+    size = 50,
     train_val_sets = (X_train, Y_train, X_val, Y_val),
     loss_fn = 'binary_crossentropy',
     score = 'accuracy',
@@ -15,20 +16,15 @@ fitness_fn = ns.get_nn_fitness_fn(
     max_training_time = 60
     )
 
-fnns = ns.Population(
-    genus = ns.FNN(),
-    fitness_fn = fitness_fn,
-    size = 50,
-    )
-
-history = fnns.evolve(
-    generations = 20
-    )
-
-print("Best overall genome is:")
-print(history.fittest)
+history = fnns.evolve(generations = 20)
+print("Best overall genome:", history.fittest)
 
 history.plot(
     title = "Validation accuracy by generation",
-    ylabel = "Validation accuracy"
+    ylabel = "Validation accuracy",
+    show_plot = False,
+    file_name = "mnist_plot.png"
     )
+
+best_score = fnns.train_best()
+print("Best score:", best_score)

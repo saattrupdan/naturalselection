@@ -86,32 +86,43 @@ Lastly, here is an example of finding a vanilla feedforward neural network to mo
 ...   max_training_time = 60
 ...   )
 >>>
->>> # The above fitness function will actually output 1 / (1 - accuracy) to
->>> # enable an unbounded range for which the algorithm performs better, so
->>> # below we set `post_fn` to be the inverse of this, to get the accuracy
 >>> fnns = ns.Population(
 ...   genus = ns.FNN(),
 ...   size = 50,
 ...   fitness_fn = fitness_fn,
-...   post_fn = lambda x: 1 - (1 / x)
 ...   )
->>> history = fnns.evolve(generations = 20)
-Evolving population: 100%|██████████████████| 20/20 [3:05:08<00:00, 403.65s/it]
-Computing fitness for gen 20: 100%|█████████████| 24/24 [6:01<00:00, 15.06s/it]
+>>> history = fnns.evolve(generations = 10)
+Evolving population: 100%|██████████████████| 10/10 [3:01:44<00:00, 960.32s/it]
+Computing fitness for gen 20: 100%|████████████| 46/46 [14:08<00:00, 18.00s/it]
 >>> 
 >>> history.fittest
 {'genome': {'optimizer': 'adam', 'hidden_activation': 'relu',
-'batch_size': 1024, 'initializer': 'lecun_normal', 'input_dropout': 0.0,
-'layer0': 0, 'dropout0': 0.1, 'layer1': 512, 'dropout1': 0.0, 'layer2': 128,
-'dropout2': 0.0, 'layer3': 256, 'dropout3': 0.3, 'layer4': 128,
-'dropout4': 0.0}, 'fitness': 0.9808}
+'batch_size': 1024, 'initializer': 'glorot_normal', 'input_dropout': 0.0,
+'neurons0': 128, 'dropout0': 0.0, 'neurons1': 64, 'dropout1': 0.1,
+'neurons2': 64, dropout2': 0.2, 'neurons3': 32, 'dropout3': 0.0,
+'neurons4': 128, 'dropout4': 0.3}, 'fitness': 0.9748}
 >>> 
->>> history.plot(title = "Average validation accuracy by generation")
+>>> history.plot(
+...   title = "Validation accuracy by generation",
+...   ylabel = "Validation accuracy"
+...   )
 ```
 
 ![Plot showing fitness value (which is accuracy in this case) over 20 generations. It converges to roughly 98% after 8 generations, and the maximum reaches that already from the first generation. The standard deviation also converges to almost zero.](https://filedn.com/lRBwPhPxgV74tO0rDoe8SpH/naturalselection_data/mnist_example.png)
 
-As `layer0 = 0` this of course means that the architecture here is [512, 128, 256, 128] with 10% input dropout and 30% dropout after the layer with 256 neurons, along with the adam optimiser, lecun_normal initialiser, relu activation for the hidden layers and a batch size of 1024. Note that this large batch size is encouraged by the fact that we set `max_training_time = 60` as larger batch sizes tend to perform better on the short term. 
+This of course means that the architecture here is [128, 64, 64, 32, 128] with dropouts [0%, 0%, 10%, 20%, 0%, 30%], along with the adam optimiser, glorot_normal initialiser, relu activation for the hidden layers and a batch size of 1024. Note that this large batch size is encouraged by the fact that we set `max_training_time = 60` as larger batch sizes tend to perform better on the short term. 
+
+```python
+>>> best_fnn = ns.Organism(ns.FNN(), **history.fittest['genome'])
+>>> best_score = ns.train_fnn(
+...   best_fnn,
+...   train_val_sets = (X_train, Y_train, X_val, Y_val),
+...   loss_fn = "binary_crossentropy",
+...   output_activation = "softmax",
+...   verbose = 1
+...   )
+
+```
 
 
 ## Algorithmic details
