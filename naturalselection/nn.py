@@ -361,17 +361,17 @@ def train_fnn(fnn, train_val_sets, loss_fn = 'binary_crossentropy',
                 self.model.stop_training = True
                 if self.verbose:
                     print('Stopping after {} seconds.'.format(self.seconds))
-            else:
-                super().on_batch_end(batch, logs)
 
         def on_epoch_end(self, epoch, logs = None):
             if self.seconds and time.time() - self.start_time > self.seconds:
                 self.model.stop_training = True
-                if self.restore_best_weights:
+                if self.restore_best_weights and self.best_weights:
                     self.model.set_weights(self.best_weights) 
                 if self.verbose:
                     print('Stopping after {} seconds.'.format(self.seconds))
-            else:
+
+            # This restores best weights if we're beyond the first epoch
+            if logs.get(self.monitor):
                 super().on_epoch_end(epoch, logs)
 
     X_train, Y_train, X_val, Y_val = train_val_sets
