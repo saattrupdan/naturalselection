@@ -1,8 +1,6 @@
 import numpy as np
 import os
-import time
 from functools import partial 
-from itertools import count
 from naturalselection.core import Genus, Population
 
 class FNN(Genus):
@@ -124,7 +122,7 @@ class FNNs(Population):
             self.population = self.genus.create_organisms(size)
 
     def train_best(self, max_epochs = 1000000, min_change = 1e-4, patience = 5,
-        max_training_time = None, file_name = None, verbose = 1):
+        max_training_time = None, file_name = None):
 
         fitnesses = np.array([org.fitness for org in self.population])
         best_fnn = self.population[np.argmax(fitnesses)]
@@ -141,7 +139,7 @@ class FNNs(Population):
             patience            = patience,
             min_change          = min_change,
             max_training_time   = max_training_time,
-            verbose             = verbose,
+            verbose             = 1,
             file_name           = file_name
             )
 
@@ -189,33 +187,192 @@ def train_fnn(fnn, train_val_sets, loss_fn = 'binary_crossentropy',
     from sklearn.metrics import f1_score, precision_score, recall_score
     from tensorflow.python.util import deprecation
 
+    # Used when building network
+    from itertools import count
+
+    # Used for the TQDMCallback callback
+    import six
+    from sys import stderr
+    from tqdm import tqdm
+    
+    # Used for the TimeStopping callback
+    import time
+
     # Suppress deprecation warnings
     deprecation._PRINT_DEPRECATION_WARNINGS = False
 
     # Suppress tensorflow warnings and infos
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
-    class TimeStopping(Callback):
+    class TQDMCallback(Callback):
+        """
+        A callback that will create and update progress bars.
+        Source: https://github.com/bstriner/keras-tqdm
+        """
+
+        def __init__(self, outer_description = "Training",
+                     inner_description_initial = "Epoch: {epoch}",
+                     inner_description_update = "Epoch: {epoch} - {metrics}",
+                     metric_format = "{name}: {value:0.3f}",
+                     separator = ", ",
+                     leave_inner = True,
+                     leave_outer = True,
+                     show_inner = True,
+                     show_outer = True,
+                     output_file = stderr,
+                     initial = 0):
+
+            self.outer_description = outer_description
+            self.inner_description_initial = inner_description_initial
+            self.inner_description_update = inner_description_update
+            self.metric_format = metric_format
+            self.separator = separator
+            self.leave_inner = leave_inner
+            self.leave_outer = leave_outer
+            self.show_inner = show_inner
+            self.show_outer = show_outer
+            self.output_file = output_file
+            self.tqdm_outer = None
+            self.tqdm_inner = None
+            self.epoch = None
+            self.running_logs = None
+            self.inner_count = None
+            self.initial = initial
+
+        def tqdm(self, desc, total, leave, initial = 0):
+            """
+            Extension point. Override to provide custom options to tqdm
+            initializer.
+            """
+            return tqdm(desc = desc, total = total, leave = leave, 
+                        file = self.output_file, initial = initial)
+
+        def build_tqdm_outer(self, desc, total):
+            """
+            Extension point. Override to provide custom options to outer
+            progress bars (Epoch loop)
+            """
+            return self.tqdm(desc = desc, total = total,
+                leave = self.leave_outer, initial = self.initial)
+
+        def build_tqdm_inner(self, desc, total):
+            """
+            Extension point. Override to provide custom options to inner
+            progress bars (Batch loop)
+            """
+            return self.tqdm(desc = desc, total = total,
+                leave = self.leave_inner)
+
+        def on_epoch_begin(self, epoch, logs = None):
+            self.epoch  =  epoch
+            desc = self.inner_description_initial.format(epoch = self.epoch)
+            self.mode = 0  # samples
+            if 'samples' in self.params:
+                self.inner_total = self.params['samples']
+            elif 'nb_sample' in self.params:
+                self.inner_total = self.params['nb_sample']
+            else:
+                self.mode = 1  # steps
+                self.inner_total = self.params['steps']
+            if self.show_inner:
+                self.tqdm_inner = self.build_tqdm_inner(desc = desc,
+                    total = self.inner_total)
+            self.inner_count = 0
+            self.running_logs = None
+
+        def on_epoch_end(self, epoch, logs = None):
+            metrics = self.format_metrics(logs)
+            desc = self.inner_description_update.format(epoch = epoch,
+                metrics = metrics)
+            if self.show_inner:
+                self.tqdm_inner.desc = desc
+                # set miniters and mininterval to 0 so last update displays
+                self.tqdm_inner.miniters = 0
+                self.tqdm_inner.mininterval = 0
+                self.tqdm_inner.update(self.inner_total - self.tqdm_inner.n)
+                self.tqdm_inner.close()
+            if self.show_outer:
+                self.tqdm_outer.update(1)
+
+        def on_batch_begin(self, batch, logs = None):
+            pass
+
+        def on_batch_end(self, batch, logs = None):
+            if self.mode == 0:
+                update = logs['size']
+            else:
+                update = 1
+            self.inner_count += update
+            if self.inner_count < self.inner_total:
+                self.append_logs(logs)
+                metrics = self.format_metrics(self.running_logs)
+                desc = self.inner_description_update.format(
+                    epoch = self.epoch, metrics = metrics)
+                if self.show_inner:
+                    self.tqdm_inner.desc = desc
+                    self.tqdm_inner.update(update)
+
+        def on_train_begin(self, logs = None):
+            if self.show_outer:
+                epochs = (self.params['epochs'] if 'epochs' in self.params
+                          else self.params['nb_epoch'])
+                self.tqdm_outer = self.build_tqdm_outer(
+                    desc = self.outer_description, total = epochs)
+
+        def on_train_end(self, logs = None):
+            if self.show_outer:
+                self.tqdm_outer.close()
+
+        def append_logs(self, logs):
+            metrics = self.params['metrics']
+            for metric, value in six.iteritems(logs):
+                if metric in metrics:
+                    if metric in self.running_logs:
+                        self.running_logs[metric].append(value[()])
+                    else:
+                        self.running_logs[metric] = [value[()]]
+
+        def format_metrics(self, logs):
+            metrics = self.params['metrics']
+            strings = [self.metric_format.format(name = metric,
+                value = np.mean(logs[metric], axis = None))
+                for metric in metrics if metric in logs]
+            return self.separator.join(strings)
+
+    class EarlierStopping(EarlyStopping):
         ''' Callback to stop training when enough time has passed.
+        Partial source: https://github.com/keras-team/keras-contrib/issues/87
 
         INPUT
             (int) seconds: maximum time before stopping.
             (int) verbose: verbosity mode.
         '''
-        def __init__(self, seconds = None, verbose = 0):
-            super(Callback, self).__init__()
+        def __init__(self, seconds = None, **kwargs):
+            super().__init__(**kwargs)
             self.start_time = 0
             self.seconds = seconds
-            self.verbose = verbose
 
         def on_train_begin(self, logs = None):
             self.start_time = time.time()
+            super().on_train_begin(logs)
 
-        def on_epoch_end(self, batch, logs = None):
+        def on_batch_end(self, batch, logs = None):
             if self.seconds and time.time() - self.start_time > self.seconds:
                 self.model.stop_training = True
                 if self.verbose:
                     print('Stopping after {} seconds.'.format(self.seconds))
+            else:
+                super().on_batch_end(batch, logs)
+
+        def on_epoch_end(self, epoch, logs = None):
+            if self.seconds and time.time() - self.start_time > self.seconds:
+                self.model.stop_training = True
+                if self.restore_best_weights:
+                    self.model.set_weights(self.best_weights) 
+                if self.verbose:
+                    print('Stopping after {} seconds.'.format(self.seconds))
+            else:
+                super().on_epoch_end(epoch, logs)
 
     X_train, Y_train, X_val, Y_val = train_val_sets
 
@@ -246,17 +403,17 @@ def train_fnn(fnn, train_val_sets, loss_fn = 'binary_crossentropy',
         optimizer = fnn.optimizer,
         )
 
-    early_stopping = EarlyStopping(
+    early_stopping = EarlierStopping(
         monitor = 'val_loss',
         patience = patience,
         min_delta = min_change,
-        restore_best_weights = True
+        restore_best_weights = True,
+        seconds = max_training_time
         )
 
-    time_stopping = TimeStopping(
-        seconds = max_training_time,
-        verbose = verbose
-        )
+    callbacks = [early_stopping]
+    if verbose:
+        callbacks.append(TQDMCallback())
 
     H = nn.fit(
         X_train,
@@ -264,8 +421,8 @@ def train_fnn(fnn, train_val_sets, loss_fn = 'binary_crossentropy',
         batch_size = fnn.batch_size,
         validation_data = (X_val, Y_val),
         epochs = max_epochs,
-        callbacks = [early_stopping, time_stopping],
-        verbose = verbose
+        callbacks = callbacks,
+        verbose = 0
         )
 
     if file_name:
