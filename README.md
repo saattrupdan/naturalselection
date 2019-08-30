@@ -65,7 +65,7 @@ Evolving population: 45%|████████         | 4480/10000 [01:00<01
 ![Plot showing fitness value over 4500 generations, converging steadily to the optimal filled out sequence of ones.](https://filedn.com/lRBwPhPxgV74tO0rDoe8SpH/naturalselection_data/1max_example.png)
 
 
-Lastly, here is an example of finding a fully connected feedforward neural network to model [MNIST](https://en.wikipedia.org/wiki/MNIST_database). Note that this requires roughly 1GB memory available per CPU core (which usually is 4). If you don't have this available then set the `workers` parameters in the `evolve` call to something around 2 or 3, or set `multiprocessing = False` to turn parallelism off completely. 
+Lastly, here is an example of finding a fully connected feedforward neural network to model [MNIST](https://en.wikipedia.org/wiki/MNIST_database). Note that this requires roughly 1GB memory available per CPU core (which usually is 4). If you don't have this available then set the `workers` parameter in the `evolve` call to something around 2 or 3, or set `multiprocessing = False` to turn parallelism off completely. 
 
 If you're the lucky owner of a GPU then you need to set `multiprocessing = False` as well (and set `max_training_time` to something smaller, and/or set `max_epochs` to something small).
 
