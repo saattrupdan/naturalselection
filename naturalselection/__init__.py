@@ -1,2 +1,2 @@
 from naturalselection.core import Genus, Organism, Population, History
-from naturalselection.nn import FNN, FNNs, train_fnn
+from naturalselection.nn import FNN, FNNs

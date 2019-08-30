@@ -65,10 +65,14 @@ Evolving population: 45%|████████         | 4480/10000 [01:00<01
 ![Plot showing fitness value over 4500 generations, converging steadily to the optimal filled out sequence of ones.](https://filedn.com/lRBwPhPxgV74tO0rDoe8SpH/naturalselection_data/1max_example.png)
 
 
-Lastly, here is an example of finding a vanilla feedforward neural network to model [MNIST](https://en.wikipedia.org/wiki/MNIST_database).
+Lastly, here is an example of finding a fully connected feedforward neural network to model [MNIST](https://en.wikipedia.org/wiki/MNIST_database). Note that this requires roughly 1GB memory available per CPU core (which usually is 4). If you don't have this available then set the `workers` parameters in the `evolve` call to something around 2 or 3, or set `multiprocessing = False` to turn parallelism off completely. 
+
+If you're the lucky owner of a GPU then you need to set `multiprocessing = False` as well (and set `max_training_time` to something smaller, and/or set `max_epochs` to something small).
 
 ```python
 >>> import naturalselection as ns
+>>>
+>>> # MNIST packages
 >>> from tensorflow.keras.utils import to_categorical
 >>> import mnist
 >>>
@@ -78,29 +82,25 @@ Lastly, here is an example of finding a vanilla feedforward neural network to mo
 >>> X_val = ((mnist.test_images() / 255) - 0.5).reshape((-1, 784))
 >>> Y_val = to_categorical(mnist.test_labels())
 >>>
->>> fitness_fn = ns.get_nn_fitness_fn(
-...   train_val_sets = (X_train, Y_train, X_val, Y_val),
-...   loss_fn = 'binary_crossentropy',
-...   score = 'accuracy',
-...   output_activation = 'softmax',
-...   max_training_time = 60
-...   )
->>>
->>> fnns = ns.Population(
-...   genus = ns.FNN(),
-...   size = 50,
-...   fitness_fn = fitness_fn,
-...   )
->>> history = fnns.evolve(generations = 10)
-Evolving population: 100%|██████████████████| 10/10 [3:01:44<00:00, 960.32s/it]
-Computing fitness for gen 20: 100%|████████████| 46/46 [14:08<00:00, 18.00s/it]
+>>> fnns = ns.FNNs(
+>>>     size = 50,
+>>>     train_val_sets = (X_train, Y_train, X_val, Y_val),
+>>>     loss_fn = 'binary_crossentropy',
+>>>     score = 'accuracy',
+>>>     output_activation = 'softmax',
+>>>     max_training_time = 60
+>>>     )
+>>> 
+>>> history = fnns.evolve(generations = 20)
+Evolving population: 100%|██████████████████| 20/20 [4:28:35<00:00, 776.70s/it]
+Computing fitness for gen 19: 100%|████████████| 46/46 [13:22<00:00, 17.44s/it]
 >>> 
 >>> history.fittest
-{'genome': {'optimizer': 'adam', 'hidden_activation': 'relu',
-'batch_size': 1024, 'initializer': 'glorot_normal', 'input_dropout': 0.0,
-'neurons0': 128, 'dropout0': 0.0, 'neurons1': 64, 'dropout1': 0.1,
-'neurons2': 64, dropout2': 0.2, 'neurons3': 32, 'dropout3': 0.0,
-'neurons4': 128, 'dropout4': 0.3}, 'fitness': 0.9748}
+{'genome': {'optimizer': 'adam', 'hidden_activation': 'elu',
+'batch_size': 128, 'initializer': 'glorot_uniform', 'input_dropout': 0.1,
+'neurons0': 128, 'dropout0': 0.0, 'neurons1': 64, 'dropout1': 0.0,
+'neurons2': 1024, dropout2': 0.1, 'neurons3': 32, 'dropout3': 0.4,
+'neurons4': 256, 'dropout4': 0.1}, 'fitness': 0.973}
 >>> 
 >>> history.plot(
 ...   title = "Validation accuracy by generation",
@@ -108,20 +108,15 @@ Computing fitness for gen 20: 100%|████████████| 46/46 [
 ...   )
 ```
 
-![Plot showing fitness value (which is accuracy in this case) over 20 generations. It converges to roughly 98% after 8 generations, and the maximum reaches that already from the first generation. The standard deviation also converges to almost zero.](https://filedn.com/lRBwPhPxgV74tO0rDoe8SpH/naturalselection_data/mnist_example.png)
-
-This of course means that the architecture here is [128, 64, 64, 32, 128] with dropouts [0%, 0%, 10%, 20%, 0%, 30%], along with the adam optimiser, glorot_normal initialiser, relu activation for the hidden layers and a batch size of 1024. Note that this large batch size is encouraged by the fact that we set `max_training_time = 60` as larger batch sizes tend to perform better on the short term. 
+![Plot showing fitness value (which is accuracy in this case) over 20 generations, converging to roughly 97%.](https://filedn.com/lRBwPhPxgV74tO0rDoe8SpH/naturalselection_data/mnist_example.png)
 
 ```python
->>> best_fnn = ns.Organism(ns.FNN(), **history.fittest['genome'])
->>> best_score = ns.train_fnn(
-...   best_fnn,
-...   train_val_sets = (X_train, Y_train, X_val, Y_val),
-...   loss_fn = "binary_crossentropy",
-...   output_activation = "softmax",
-...   verbose = 1
-...   )
-
+>>> # Training the best model and saving it to mnist_model.h5
+>>> best_score = fnns.train_best(file_name = 'mnist_model')
+Epoch: 0 - loss: 0.277, val_loss: 0.179: 100%|██████████| 60000/60000 [00:31<00:00, 244.79it/s]
+(...)
+>>> best_score
+0.9793
 ```
 
 
@@ -183,7 +178,7 @@ This implementation is roughly the [bit string mutation](https://en.wikipedia.or
 These are the ideas that I have thought of implementing in the future. Check the ongoing process on the `dev` branch.
 
 * Enable support for CNNs
-* Enable support for RNNs and LSTMs
+* Enable support for RNNs and in particular LSTMs
 * Include an option to have dependency relations between genes. In a neural network setting this could include the topology as a gene on which all the layer-specific genes depend upon, which would be similar to the approach taken in [this paper](https://arxiv.org/pdf/1703.00548/).
 
 

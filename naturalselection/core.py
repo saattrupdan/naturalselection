@@ -102,11 +102,19 @@ class Organism():
 
         return Organism(self.genus, **child_genome)
 
-    def mutate(self):
-        ''' Return mutated version of the organism, where the mutated version
-            will on average have one gene different from the original. '''
+    def mutate(self, mutation_factor = 'default'):
+        ''' Return mutated version of the organism.
+        
+        INPUT
+            (float or string) mutation_factor = 'default': given that an
+                              organism is being mutated, the probability that
+                              a given gene is changed. Defaults to 1/k, where
+                              k is the size of the population
+        '''
         keys = np.asarray(list(self.get_genome().keys()))
-        mut_idx = np.less(np.random.random(keys.size), np.divide(1, keys.size))
+        if mutation_factor == 'default':
+            mutation_factor = np.divide(1, keys.size)
+        mut_idx = np.less(np.random.random(keys.size), mutation_factor)
         mut_vals = {key : self.genus.__dict__[key]\
             [np.random.choice(range(self.genus.__dict__[key].shape[0]))]
             for key in keys[mut_idx]}
@@ -139,6 +147,8 @@ class Population():
                 [Organism(genus, **initial_genome) for _ in range(size)])
         else:
             self.population = genus.create_organisms(size)
+
+        self.fittest = np.random.choice(self.population)
 
     def get_genomes(self):
         return np.asarray([o.get_genome() for o in self.population])
@@ -228,7 +238,7 @@ class Population():
                 warnings.filterwarnings('ignore', message = f1_warn)
 
                 if multiprocessing:
-                    with Pool(workers) as pool:
+                    with Pool(processes = workers) as pool:
                         if progress_bar:
                             fit_iter = tqdm(zip(unique_indices, 
                                 pool.imap(fn, unique_orgs)),
@@ -303,9 +313,9 @@ class Population():
         return pop[indices.astype(int)]
 
     def evolve(self, generations = 1, breeding_rate = 0.8,
-        mutation_rate = 0.2, elitism_rate = 0.05, multiprocessing = True,
-        workers = cpu_count(), progress_bars = 2, memory = 20, goal = None,
-        verbose = 0):
+        mutation_rate = 0.2, mutation_factor = 'default', elitism_rate = 0.05,
+        multiprocessing = True, workers = cpu_count(), progress_bars = 2,
+        memory = 20, goal = None, verbose = 0):
         ''' Evolve the population.
 
         INPUT
@@ -313,6 +323,10 @@ class Population():
             (float) breeding_rate = 0.8: percentage of population to breed 
             (float) mutation_rate = 0.2: percentage of population to mutate
                     each generation
+            (float or string) mutation_factor = 'default': given that an
+                              organism is being mutated, the probability that
+                              a given gene is changed. Defaults to 1/k, where
+                              k is the size of the population
             (float) elitism rate = 0.05: percentage of population to keep
                     across generations
             (bool) multiprocessing = True: whether fitnesses should be
@@ -344,7 +358,7 @@ class Population():
 
         for generation in gen_iter:
 
-            if goal and history.fittest['fitness'] >= goal:
+            if goal and self.fittest.fitness >= goal:
                 history.fitness_history = \
                     history.fitness_history[:generation, :]
                 # Close tqdm iterator
@@ -367,6 +381,9 @@ class Population():
             # Update fitness values 
             for (i, org) in enumerate(self.population):
                 org.fitness = fitnesses[i]
+
+            if max(fitnesses) > self.fittest.fitness:
+                self.fittest = self.population[np.argmax(fitnesses)]
 
             # Store genomes and fitness values in history
             history.add_entry(
@@ -412,7 +429,7 @@ class Population():
 
             # Mutate the children
             for mutator in children[mutators]:
-                mutator.mutate()
+                mutator.mutate(mutation_factor = mutation_factor)
 
             # The children constitutes our new generation
             if elitism_rate:
@@ -430,8 +447,9 @@ class Population():
             if verbose:
                 if progress_bars >= 2 and verbose == 1:
                     print("")
-                print("\nFittest so far: {}".format(history.fittest))
-                print(history.fittest)
+                print("\nFittest so far, with fitness {}:"\
+                    .format(self.fittest.fitness))
+                print(self.fittest.get_genome())
 
             if verbose >= 3:
                 input("\nPress Enter to continue...")
