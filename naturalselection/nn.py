@@ -36,13 +36,14 @@ class FNN(Genus):
         self.initializer = np.unique(np.asarray(initializer))
         self.input_dropout = np.unique(np.asarray(dropout))
 
-        neurons = np.unique(np.append(neurons, 0))
-        dropout = np.around(np.unique(np.append(dropout, 0)), 2)
-
         if uniform_layers:
             self.neurons = neurons
             self.dropout = dropout
+            self.number_of_hidden_layers = \
+                np.arange(1, max_number_of_hidden_layers + 1)
         else:
+            neurons = np.unique(np.append(neurons, 0))
+            dropout = np.around(np.unique(np.append(dropout, 0)), 2)
             layer_info = {}
             for layer_idx in range(max_number_of_hidden_layers):
                 layer_info["neurons{}".format(layer_idx)] = neurons
@@ -77,54 +78,56 @@ class FNNs(Population):
                                 'he_uniform', 'he_normal']),
         verbose = 0):
 
-        self.train_val_sets = train_val_sets
-        self.size = size
-        self.initial_genome = initial_genome
-        self.loss_fn = loss_fn
-        self.number_of_features = number_of_features
-        self.number_of_labels = number_of_labels
-        self.score = score
-        self.output_activation = output_activation
-        self.max_epochs = max_epochs 
-        self.patience = patience
-        self.min_change = min_change
-        self.max_training_time = max_training_time
-        self.max_number_of_hidden_layers = max_number_of_hidden_layers
-        self.uniform_layers = uniform_layers
-        self.dropout = dropout
-        self.neurons = np.array(neurons)
-        self.optimizer = np.array(optimizer)
-        self.hidden_activation = np.array(hidden_activation)
-        self.batch_size = np.array(batch_size)
-        self.initializer = np.array(initializer)
-        self.verbose = verbose
+        self.train_val_sets                 = train_val_sets
+        self.size                           = size
+        self.initial_genome                 = initial_genome
+        self.loss_fn                        = loss_fn
+        self.number_of_features             = number_of_features
+        self.number_of_labels               = number_of_labels
+        self.score                          = score
+        self.output_activation              = output_activation
+        self.max_epochs                     = max_epochs 
+        self.patience                       = patience
+        self.min_change                     = min_change
+        self.max_training_time              = max_training_time
+        self.max_number_of_hidden_layers    = max_number_of_hidden_layers
+        self.uniform_layers                 = uniform_layers
+        self.dropout                        = np.asarray(dropout)
+        self.neurons                        = np.asarray(neurons)
+        self.optimizer                      = np.asarray(optimizer)
+        self.hidden_activation              = np.asarray(hidden_activation)
+        self.batch_size                     = np.asarray(batch_size)
+        self.initializer                    = np.asarray(initializer)
+        self.verbose                        = verbose
 
         self.genus = FNN(
-            max_number_of_hidden_layers = max_number_of_hidden_layers,
-            uniform_layers = uniform_layers,
-            dropout = dropout,
-            neurons = neurons,
-            optimizer = optimizer,
-            hidden_activation = hidden_activation,
-            batch_size = batch_size,
-            initializer = initializer
+            max_number_of_hidden_layers = self.max_number_of_hidden_layers,
+            uniform_layers              = self.uniform_layers,
+            dropout                     = self.dropout,
+            neurons                     = self.neurons,
+            optimizer                   = self.optimizer,
+            hidden_activation           = self.hidden_activation,
+            batch_size                  = self.batch_size,
+            initializer                 = self.initializer
             )
 
         self.fitness_fn = partial(
             self.train_fnn,
-            max_epochs        = max_epochs,
-            patience          = patience,
-            min_change        = min_change,
-            max_training_time = max_training_time,
-            verbose           = verbose,
-            file_name         = None
+            max_epochs          = self.max_epochs,
+            patience            = self.patience,
+            min_change          = self.min_change,
+            max_training_time   = self.max_training_time,
+            verbose             = self.verbose,
+            file_name           = None
             )
 
-        if initial_genome:
+        if self.initial_genome:
             self.population = np.array(
-                [Organism(self.genus, **initial_genome) for _ in range(size)])
+                [Organism(self.genus, **self.initial_genome)
+                for _ in range(self.size)]
+                )
         else:
-            self.population = self.genus.create_organisms(size)
+            self.population = self.genus.create_organisms(self.size)
 
         self.fittest = np.random.choice(self.population)
 
@@ -133,13 +136,13 @@ class FNNs(Population):
 
         best_fnn = self.fittest        
         score = self.train_fnn(
-            fnn               = best_fnn,
-            max_epochs        = max_epochs,
-            patience          = patience,
-            min_change        = min_change,
-            max_training_time = max_training_time,
-            verbose           = 1,
-            file_name         = file_name
+            fnn                 = best_fnn,
+            max_epochs          = max_epochs,
+            patience            = patience,
+            min_change          = min_change,
+            max_training_time   = max_training_time,
+            verbose             = 1,
+            file_name           = file_name
             )
         return score
 
@@ -205,25 +208,23 @@ class FNNs(Population):
                 show_outer = True,
                 output_file = None,
                 initial = 0):
-                """
-                Construct a callback that will create and update progress bars.
-                """
-                self.outer_description = outer_description
-                self.inner_description_initial = inner_description_initial
-                self.inner_description_update = inner_description_update
-                self.metric_format = metric_format
-                self.separator = separator
-                self.leave_inner = leave_inner
-                self.leave_outer = leave_outer
-                self.show_inner = show_inner
-                self.show_outer = show_outer
-                self.output_file = output_file
-                self.tqdm_outer = None
-                self.tqdm_inner = None
-                self.epoch = None
-                self.running_logs = None
-                self.inner_count = None
-                self.initial = initial
+
+                self.outer_description          = outer_description
+                self.inner_description_initial  = inner_description_initial
+                self.inner_description_update   = inner_description_update
+                self.metric_format              = metric_format
+                self.separator                  = separator
+                self.leave_inner                = leave_inner
+                self.leave_outer                = leave_outer
+                self.show_inner                 = show_inner
+                self.show_outer                 = show_outer
+                self.output_file                = output_file
+                self.tqdm_outer                 = None
+                self.tqdm_inner                 = None
+                self.epoch                      = None
+                self.running_logs               = None
+                self.inner_count                = None
+                self.initial                    = initial
 
             def build_tqdm(self, desc, total, leave, initial = 0):
                 """
@@ -375,7 +376,7 @@ class FNNs(Population):
         x = Dropout(fnn.input_dropout)(inputs)
 
         if self.uniform_layers:
-            for i in range(self.max_number_of_hidden_layers):
+            for _ in range(fnn.number_of_hidden_layers):
                 x = Dense(fnn.neurons, activation = fnn.hidden_activation,
                     kernel_initializer = fnn.initializer)(x)
                 x = Dropout(fnn.dropout)(x)

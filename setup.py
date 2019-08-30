@@ -10,7 +10,7 @@ setuptools.setup(
         'nn = naturalselection.nn:main', 
         ]},
     install_requires = ['numpy','matplotlib','tqdm','tensorflow','sklearn'],
-    version = "0.3.4",
+    version = "0.4.0",
     author = "Dan Saattrup Nielsen",
     author_email = "saattrupdan@gmail.com",
     description = "An all-purpose pythonic genetic algorithm",
@@ -20,8 +20,9 @@ setuptools.setup(
     url = "https://github.com/saattrupdan/naturalselection",
     packages = setuptools.find_packages(),
     classifiers = [
+     "Development Status :: 3 - Alpha",
      "Programming Language :: Python :: 3",
-     "License :: OSI Approved :: Python Software Foundation License",
+     "License :: OSI Approved :: MIT License",
      "Operating System :: OS Independent",
     ],
     )

@@ -41,7 +41,7 @@ We can also easily solve the classical [OneMax problem](http://tracer.lcc.uma.es
 >>>
 >>> # Length of the bit strings
 >>> N = 100
->>> BitString = ns.Genus(**{f'x{n}' : (0,1) for n in range(N)})
+>>> BitString = ns.Genus(**{'x{}'.format(n) : (0,1) for n in range(N)})
 >>>
 >>> def sum_bits(bitstring):
 ...   return sum(bitstring.get_genome().values())
