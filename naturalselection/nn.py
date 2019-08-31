@@ -26,7 +26,7 @@ class FNN(Genus):
         optimizer = np.array(['sgd', 'rmsprop', 'adagrad', 'adadelta',
                               'adamax', 'adam', 'nadam']),
         hidden_activation = np.array(['relu', 'elu', 'softplus', 'softsign']),
-        batch_size = np.array([2 ** n for n in range(4, 12)]),
+        batch_size = np.array([2 ** n for n in range(4, 7)]),
         initializer = np.array(['lecun_uniform', 'lecun_normal',
                                 'glorot_uniform', 'glorot_normal',
                                 'he_uniform', 'he_normal'])):

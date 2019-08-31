@@ -30,15 +30,21 @@ class Genus():
             {key : np.asarray(val) for (key, val) in genomes.items()}
             )
 
+    def create_random_organism(self, _):
+        rnd_genes = {key : val[np.random.choice(range(val.shape[0]))]
+            for (key, val) in self.__dict__.items()}
+        return Organism(genus = self, **rnd_genes)
+
     def create_organisms(self, amount = 1):
         ''' Create organisms of this genus.
         
         INPUT
             (int) amount = 1
         '''
+        genus = self.__dict__.items()
         organisms = np.array([Organism(genus = self, 
             **{key : val[np.random.choice(range(val.shape[0]))]
-            for (key, val) in self.__dict__.items()}) for _ in range(amount)])
+            for (key, val) in genus}) for _ in range(amount)])
         return organisms
 
     def alter_genomes(self, **genomes):
@@ -93,17 +99,14 @@ class Organism():
         if self.genus != other.genus:
             raise Exception("Only organisms of the same genus can breed.")
 
-        # Child will inherit genes from its parents randomly
-        parents_genomes = {
-            key : (self.get_genome()[key], other.get_genome()[key])
-                for key in self.get_genome().keys()
-            }
-        child_genome = {
-            key : pair[np.random.choice([0, 1])]
-                for (key, pair) in parents_genomes.items()
-        }
+        self_genome = list(self.get_genome().items())
+        other_genome = list(other.get_genome().items())
 
-        return Organism(self.genus, **child_genome)
+        rnd = np.random.choice(len(self_genome))
+        child_genome = dict(self_genome[:rnd] + other_genome[rnd:])
+        child = Organism(self.genus, **child_genome)
+
+        return child
 
     def mutate(self, mutation_factor = 'default'):
         ''' Return mutated version of the organism.
@@ -136,16 +139,28 @@ class Population():
                warm start
         '''
 
-    def __init__(self, genus, size, fitness_fn, initial_genome = None):
+    def __init__(self, genus, size, fitness_fn, initial_genome = None,
+        verbose = 0):
 
         self.genus = genus
         self.size = size
-        
+        self.verbose = verbose
+
+        logging.basicConfig(format = '%(levelname)s: %(message)s')
+        self.logger = logging.getLogger()
+
+        if not verbose:
+            self.logger.setLevel(logging.WARNING)
+        elif verbose == 1:
+            self.logger.setLevel(logging.INFO)
+        elif verbose == 2:
+            self.logger.setLevel(logging.DEBUG)
+
         # Fitness function must be pickleable, so in particular it
         # cannot be a lambda expression
         self.fitness_fn = fitness_fn
 
-
+        self.logger.info("Creating population...")
 
         if initial_genome:
             self.population = np.array(
@@ -157,6 +172,29 @@ class Population():
 
     def get_genomes(self):
         return np.asarray([o.get_genome() for o in self.population])
+
+    # Duck typing function to make things immutable
+    def make_immutable(self, x):
+        try:
+            if not isinstance(x, str):
+                x = tuple(x)
+        except TypeError:
+            pass
+        return x
+
+    def immute_dict(self, d):
+        #return dict(zip(d.keys(), map(self.make_immutable, d.values())))
+        return {key : self.make_immutable(val) for (key, val) in d.items()}
+
+    def get_unique_idx(self, genome):
+        genome_dict = self.immute_dict(genome)
+        genomes = self.get_genomes()
+        try:
+            idx = np.argmin(genomes != genome_dict)
+        except:
+            genomes = np.array(list(map(self.immute_dict, genomes)))
+            idx = np.argmin(genomes != genome_dict)
+        return idx
 
     def get_fitness(self, multiprocessing = True, workers = cpu_count(),
         progress_bar = True, history = None, generation = None):
@@ -178,19 +216,8 @@ class Population():
         pop = self.population
         fitnesses = np.zeros(pop.size)
 
-        # Duck typing function to make things immutable
-        def make_immutable(x):
-            try:
-                if not isinstance(x, str):
-                    x = tuple(x)
-            except TypeError:
-                pass
-            return x
-        def immute_dict(d):
-            return {key : make_immutable(val) for (key, val) in d.items()}
-
         unique_genomes = np.array([dict(dna) for dna in
-            set(frozenset(immute_dict(genome).items())
+            set(frozenset(self.immute_dict(genome).items())
             for genome in self.get_genomes())
             ])
 
@@ -217,12 +244,12 @@ class Population():
                 if genome not in g_prev])
 
         # Pull out the organisms with the unique genomes
-        unique_indices = np.array([
-            np.min(np.array([idx for (idx, org) in enumerate(pop)
-                if immute_dict(org.get_genome()) == immute_dict(genome)
-                ]))
-            for genome in unique_genomes
-            ])
+        imm_genomes = np.array(list(
+            map(self.immute_dict, self.get_genomes())))
+        imm_unique_genomes = np.array(list(
+            map(self.immute_dict, unique_genomes)))
+        unique_indices = np.array([np.argmin(imm_genomes != genome) 
+            for genome in imm_unique_genomes])
 
         # If there are any organisms whose fitness we didn't already
         # know then compute them
@@ -265,16 +292,17 @@ class Population():
                     for (i, new_fitness) in fit_iter:
                         fitnesses[i] = new_fitness
 
+
         # Copy out the fitness values to the other organisms with same genome
         for (i, org) in enumerate(pop):
             if i not in unique_indices and i not in past_indices:
                 prev_unique_idx = np.min(np.array([idx
                     for idx in unique_indices
-                    if immute_dict(org.get_genome()) == \
-                        immute_dict(pop[idx].get_genome())
+                    if self.immute_dict(org.get_genome()) == \
+                        self.immute_dict(pop[idx].get_genome())
                     ]))
                 fitnesses[i] = fitnesses[prev_unique_idx]
-    
+
         return fitnesses
 
 
@@ -320,7 +348,7 @@ class Population():
     def evolve(self, generations = 1, breeding_rate = 0.8,
         mutation_rate = 0.2, mutation_factor = 'default', elitism_rate = 0.05,
         multiprocessing = True, workers = cpu_count(), progress_bars = 2,
-        memory = 20, goal = None, verbose = 0):
+        memory = 20, goal = None):
         ''' Evolve the population.
 
         INPUT
@@ -346,17 +374,8 @@ class Population():
                             computations, where 'inf' means unlimited memory.
             (float) goal = None: stop when fitness is above or equal to this
                     value
-            (int) verbose = 0: verbosity mode
         '''
-        #logging_warn_preinit_stderr = 0
-        logger = logging.getLogger('evolution')
-        logger.setLevel(logging.WARNING)
 
-        if verbose == 1:
-            logger.setLevel(logging.INFO)
-        elif verbose == 2:
-            logger.setLevel(logging.DEBUG)
-    
         history = History(
             population = self,
             generations = generations,
@@ -377,7 +396,7 @@ class Population():
                 # Close tqdm iterator
                 if progress_bars:
                     gen_iter.close()
-                logger.info('Reached goal, stopping evolution.')
+                self.logger.info('Reached goal, stopping evolution...')
                 break
 
             # Compute fitness values
@@ -389,7 +408,7 @@ class Population():
                 generation = generation
                 )
             
-            logger.info('Updating fitness values.')
+            self.logger.debug('Updating fitness values...')
            
             # Update fitness values 
             for (i, org) in enumerate(self.population):
@@ -405,22 +424,25 @@ class Population():
                 generation = generation
                 )
 
-            logger.debug("\n\nFitness values:", fitnesses)
+            self.logger.debug("Fitness values:", fitnesses)
 
             # Select elites 
             elites_amt = np.ceil(self.size * elitism_rate).astype(int)
             if elitism_rate:
                 elites = self.sample(amount = elites_amt)
 
-                logger.debug("\nElite pool, of size {}:".format(elites_amt))
-                logger.debug(np.array([org.get_genome() for org in elites]))
+                self.logger.debug("Elite pool, of size {}:"\
+                    .format(elites_amt))
+                self.logger.debug(np.array([org.get_genome()
+                    for org in elites]))
 
             breeders_amt = max(2, np.ceil(self.size*breeding_rate).astype(int))
             breeders = self.sample(amount = breeders_amt)
 
-            logger.debug("\nBreeding pool, of size {}:".format(breeders_amt))
-            logger.debug(np.array([org.get_genome() for org in breeders]))
-            logger.debug("\nBreeding...")
+            self.logger.debug("Breeding pool, of size {}:"\
+                .format(breeders_amt))
+            self.logger.debug(np.array([org.get_genome() for org in breeders]))
+            self.logger.debug("Breeding...")
 
             # Breed until we reach the same size
             children_amt = self.size - elites_amt
@@ -431,11 +453,11 @@ class Population():
             # Find the mutation pool
             mutators = np.less(np.random.random(children_amt), mutation_rate)
 
-            logger.debug("\nMutation pool, of size {}:"\
+            self.logger.debug("Mutation pool, of size {}:"\
                 .format(children[mutators].size))
-            logger.debug(np.array([child.get_genome() for child in
+            self.logger.debug(np.array([child.get_genome() for child in
                 children[mutators]]))
-            logger.debug("\nMutating...")
+            self.logger.debug("Mutating...")
 
             # Mutate the children
             for mutator in children[mutators]:
@@ -447,15 +469,15 @@ class Population():
             else:
                 self.population = children
             
-            logger.debug("\nNew population, of size {}:"\
+            self.logger.debug("New population, of size {}:"\
                 .format(self.population.size))
-            logger.debug(self.get_genomes())
-            logger.debug("\nMean fitness: {}".format(np.mean(fitnesses)))
-            logger.debug("Std fitness: {}".format(np.std(fitnesses)))
+            self.logger.debug(self.get_genomes())
+            self.logger.debug("Mean fitness: {}".format(np.mean(fitnesses)))
+            self.logger.debug("Std fitness: {}".format(np.std(fitnesses)))
 
-            logger.info("\nFittest so far, with fitness {}:"\
+            self.logger.info("Fittest so far, with fitness {}:"\
                 .format(self.fittest.fitness))
-            logger.info(self.fittest.get_genome())
+            self.logger.info(self.fittest.get_genome())
 
         return history
 
