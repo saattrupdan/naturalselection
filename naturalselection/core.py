@@ -15,6 +15,9 @@ from tqdm import tqdm, trange
 # Parallelising fitness
 from multiprocessing import Pool, cpu_count
 
+# Logging
+import logging
+
 class Genus():
     ''' Storing information about all the possible gene combinations.
 
@@ -141,6 +144,8 @@ class Population():
         # Fitness function must be pickleable, so in particular it
         # cannot be a lambda expression
         self.fitness_fn = fitness_fn
+
+
 
         if initial_genome:
             self.population = np.array(
@@ -343,6 +348,14 @@ class Population():
                     value
             (int) verbose = 0: verbosity mode
         '''
+        #logging_warn_preinit_stderr = 0
+        logger = logging.getLogger('evolution')
+        logger.setLevel(logging.WARNING)
+
+        if verbose == 1:
+            logger.setLevel(logging.INFO)
+        elif verbose == 2:
+            logger.setLevel(logging.DEBUG)
     
         history = History(
             population = self,
@@ -364,10 +377,8 @@ class Population():
                 # Close tqdm iterator
                 if progress_bars:
                     gen_iter.close()
+                logger.info('Reached goal, stopping evolution.')
                 break
-
-            if verbose >= 2:
-                print("\n\n~~~ GENERATION {} ~~~".format(generation))
 
             # Compute fitness values
             fitnesses = self.get_fitness(
@@ -377,6 +388,8 @@ class Population():
                 history = history,
                 generation = generation
                 )
+            
+            logger.info('Updating fitness values.')
            
             # Update fitness values 
             for (i, org) in enumerate(self.population):
@@ -392,25 +405,22 @@ class Population():
                 generation = generation
                 )
 
-            if verbose >= 2:
-                print("\n\nFitness values:", fitnesses)
+            logger.debug("\n\nFitness values:", fitnesses)
 
             # Select elites 
             elites_amt = np.ceil(self.size * elitism_rate).astype(int)
             if elitism_rate:
                 elites = self.sample(amount = elites_amt)
 
-                if verbose >= 2:
-                    print("\nElite pool, of size {}:".format(elites_amt))
-                    print(np.array([org.get_genome() for org in elites]))
+                logger.debug("\nElite pool, of size {}:".format(elites_amt))
+                logger.debug(np.array([org.get_genome() for org in elites]))
 
             breeders_amt = max(2, np.ceil(self.size*breeding_rate).astype(int))
             breeders = self.sample(amount = breeders_amt)
 
-            if verbose >= 2:
-                print("\nBreeding pool, of size {}:".format(breeders_amt))
-                print(np.array([org.get_genome() for org in breeders]))
-                print("\nBreeding...")
+            logger.debug("\nBreeding pool, of size {}:".format(breeders_amt))
+            logger.debug(np.array([org.get_genome() for org in breeders]))
+            logger.debug("\nBreeding...")
 
             # Breed until we reach the same size
             children_amt = self.size - elites_amt
@@ -421,11 +431,11 @@ class Population():
             # Find the mutation pool
             mutators = np.less(np.random.random(children_amt), mutation_rate)
 
-            if verbose >= 2:
-                print("\nMutation pool, of size {}:"\
-                    .format(children[mutators].size))
-                print(np.array([c.get_genome() for c in children[mutators]]))
-                print("\nMutating...")
+            logger.debug("\nMutation pool, of size {}:"\
+                .format(children[mutators].size))
+            logger.debug(np.array([child.get_genome() for child in
+                children[mutators]]))
+            logger.debug("\nMutating...")
 
             # Mutate the children
             for mutator in children[mutators]:
@@ -437,25 +447,15 @@ class Population():
             else:
                 self.population = children
             
-            if verbose >= 2:
-                print("\nNew population, of size {}:"\
-                    .format(self.population.size))
-                print(self.get_genomes())
-                print("\nMean fitness: {}".format(np.mean(fitnesses)))
-                print("Std fitness: {}".format(np.std(fitnesses)))
+            logger.debug("\nNew population, of size {}:"\
+                .format(self.population.size))
+            logger.debug(self.get_genomes())
+            logger.debug("\nMean fitness: {}".format(np.mean(fitnesses)))
+            logger.debug("Std fitness: {}".format(np.std(fitnesses)))
 
-            if verbose:
-                if progress_bars >= 2 and verbose == 1:
-                    print("")
-                print("\nFittest so far, with fitness {}:"\
-                    .format(self.fittest.fitness))
-                print(self.fittest.get_genome())
-
-            if verbose >= 3:
-                input("\nPress Enter to continue...")
-
-        if progress_bars >= 2:
-            print("")
+            logger.info("\nFittest so far, with fitness {}:"\
+                .format(self.fittest.fitness))
+            logger.info(self.fittest.get_genome())
 
         return history
 

@@ -20,7 +20,8 @@ class FNN(Genus):
     def __init__(self,
         max_number_of_hidden_layers = 5,
         uniform_layers = False,
-        dropout = np.arange(0, 0.6, 0.1),
+        input_dropout = np.arange(0, 0.6, 0.1),
+        hidden_dropout = np.arange(0, 0.6, 0.1),
         neurons = np.array([2 ** n for n in range(4, 13)]),
         optimizer = np.array(['sgd', 'rmsprop', 'adagrad', 'adadelta',
                               'adamax', 'adam', 'nadam']),
@@ -34,16 +35,16 @@ class FNN(Genus):
         self.hidden_activation = np.unique(np.asarray(hidden_activation))
         self.batch_size = np.unique(np.asarray(batch_size))
         self.initializer = np.unique(np.asarray(initializer))
-        self.input_dropout = np.unique(np.asarray(dropout))
+        self.input_dropout = np.unique(np.asarray(input_dropout))
 
         if uniform_layers:
-            self.neurons = neurons
-            self.dropout = dropout
+            self.neurons = np.unique(np.asarray(neurons))
+            self.dropout = np.unique(np.asarray(hidden_dropout))
             self.number_of_hidden_layers = \
                 np.arange(1, max_number_of_hidden_layers + 1)
         else:
             neurons = np.unique(np.append(neurons, 0))
-            dropout = np.around(np.unique(np.append(dropout, 0)), 2)
+            dropout = np.around(np.unique(np.append(hidden_dropout, 0)), 2)
             layer_info = {}
             for layer_idx in range(max_number_of_hidden_layers):
                 layer_info["neurons{}".format(layer_idx)] = neurons
@@ -66,7 +67,8 @@ class FNNs(Population):
         max_training_time = None, 
         max_number_of_hidden_layers = 5,
         uniform_layers = False,
-        dropout = np.arange(0, 0.6, 0.1),
+        input_dropout = np.arange(0, 0.6, 0.1),
+        hidden_dropout = np.arange(0, 0.6, 0.1),
         neurons = np.array([2 ** n for n in range(4, 13)]),
         optimizer = np.array(['sgd', 'rmsprop', 'adagrad', 'adadelta',
                               'adamax', 'adam', 'nadam']),
@@ -92,18 +94,20 @@ class FNNs(Population):
         self.max_training_time              = max_training_time
         self.max_number_of_hidden_layers    = max_number_of_hidden_layers
         self.uniform_layers                 = uniform_layers
-        self.dropout                        = np.asarray(dropout)
-        self.neurons                        = np.asarray(neurons)
-        self.optimizer                      = np.asarray(optimizer)
-        self.hidden_activation              = np.asarray(hidden_activation)
-        self.batch_size                     = np.asarray(batch_size)
-        self.initializer                    = np.asarray(initializer)
+        self.input_dropout                  = input_dropout
+        self.hidden_dropout                 = hidden_dropout
+        self.neurons                        = neurons
+        self.optimizer                      = optimizer
+        self.hidden_activation              = hidden_activation
+        self.batch_size                     = batch_size
+        self.initializer                    = initializer
         self.verbose                        = verbose
 
         self.genus = FNN(
             max_number_of_hidden_layers = self.max_number_of_hidden_layers,
             uniform_layers              = self.uniform_layers,
-            dropout                     = self.dropout,
+            input_dropout               = self.input_dropout,
+            hidden_dropout              = self.hidden_dropout,
             neurons                     = self.neurons,
             optimizer                   = self.optimizer,
             hidden_activation           = self.hidden_activation,
@@ -167,204 +171,23 @@ class FNNs(Population):
 
         from tensorflow.keras.models import Model
         from tensorflow.keras.layers import Input, Dense, Dropout
-        from tensorflow.keras.callbacks import Callback, EarlyStopping
         from tensorflow.keras import backend as K
         from tensorflow.python.util import deprecation
+        
         from sklearn.metrics import accuracy_score
         from sklearn.metrics import f1_score, precision_score, recall_score
+
+        # Custom callbacks
+        from .callbacks import TQDMCallback, EarlierStopping
 
         # Used when building network
         from itertools import count
 
-        # Used for the EarlierStopping callback
-        import time
-
-        # Used for the TQDMCallback callback
-        from tqdm import tqdm
-
-        # Used for constructing generator
-        from itertools import tee
-
-        # Suppress deprecation warnings
+        # Suppress tensorflow warnings
         deprecation._PRINT_DEPRECATION_WARNINGS = False
-
-        # Suppress tensorflow warnings and infos
         os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
-        class TQDMCallback(Callback):
-            '''
-            Callback to enable tqdm integration.
-            Source: https://github.com/bstriner/keras-tqdm
-            '''
-
-            def __init__(self, outer_description = "Training",
-                inner_description_initial = "Epoch: {epoch}",
-                inner_description_update = "Epoch: {epoch} - {metrics}",
-                metric_format = "{name}: {value:0.3f}",
-                separator = ", ",
-                leave_inner = True,
-                leave_outer = True,
-                show_inner = True,
-                show_outer = True,
-                output_file = None,
-                initial = 0):
-
-                self.outer_description          = outer_description
-                self.inner_description_initial  = inner_description_initial
-                self.inner_description_update   = inner_description_update
-                self.metric_format              = metric_format
-                self.separator                  = separator
-                self.leave_inner                = leave_inner
-                self.leave_outer                = leave_outer
-                self.show_inner                 = show_inner
-                self.show_outer                 = show_outer
-                self.output_file                = output_file
-                self.tqdm_outer                 = None
-                self.tqdm_inner                 = None
-                self.epoch                      = None
-                self.running_logs               = None
-                self.inner_count                = None
-                self.initial                    = initial
-
-            def build_tqdm(self, desc, total, leave, initial = 0):
-                """
-                Extension point. Override to provide custom options to tqdm
-                initializer.
-                """
-                return tqdm(desc = desc, total = total, leave = leave, 
-                    file = self.output_file, initial = initial)
-
-            def build_tqdm_outer(self, desc, total):
-                """
-                Extension point. Override to provide custom options to outer
-                progress bars (Epoch loop)
-                """
-                return self.build_tqdm(desc = desc, total = total,
-                    leave = self.leave_outer, initial = self.initial)
-
-            def build_tqdm_inner(self, desc, total):
-                """
-                Extension point. Override to provide custom options to inner
-                progress bars (Batch loop)
-                """
-                return self.build_tqdm(desc = desc, total = total,
-                    leave = self.leave_inner)
-
-            def on_epoch_begin(self, epoch, logs = {}):
-                self.epoch = epoch
-                desc = self.inner_description_initial.format(
-                    epoch = self.epoch)
-                self.mode = 0  # samples
-                if 'samples' in self.params:
-                    self.inner_total = self.params['samples']
-                elif 'nb_sample' in self.params:
-                    self.inner_total = self.params['nb_sample']
-                else:
-                    self.mode = 1  # steps
-                    self.inner_total = self.params['steps']
-                if self.show_inner:
-                    self.tqdm_inner = self.build_tqdm_inner(desc = desc,
-                        total = self.inner_total)
-                self.inner_count = 0
-                self.running_logs = {}
-
-            def on_epoch_end(self, epoch, logs = {}):
-                metrics = self.format_metrics(logs)
-                desc = self.inner_description_update.format(epoch = epoch,
-                    metrics = metrics)
-                if self.show_inner:
-                    self.tqdm_inner.desc = desc
-                    # set miniters and mininterval to 0 so last update shows 
-                    self.tqdm_inner.miniters = 0
-                    self.tqdm_inner.mininterval = 0
-                    self.tqdm_inner.update(self.inner_total-self.tqdm_inner.n)
-                    self.tqdm_inner.close()
-                if self.show_outer:
-                    self.tqdm_outer.update(1)
-
-            def on_batch_begin(self, batch, logs = {}):
-                pass
-
-            def on_batch_end(self, batch, logs = {}):
-                if self.mode == 0:
-                    update = logs['size']
-                else:
-                    update = 1
-                self.inner_count += update
-                if self.inner_count < self.inner_total:
-                    self.append_logs(logs)
-                    metrics = self.format_metrics(self.running_logs)
-                    desc = self.inner_description_update.format(
-                        epoch = self.epoch, metrics = metrics)
-                    if self.show_inner:
-                        self.tqdm_inner.desc = desc
-                        self.tqdm_inner.update(update)
-
-            def on_train_begin(self, logs = {}):
-                if self.show_outer:
-                    epochs = (self.params['epochs'] if 'epochs' in self.params
-                              else self.params['nb_epoch'])
-                    self.tqdm_outer = self.build_tqdm_outer(
-                        desc = self.outer_description, total = epochs)
-
-            def on_train_end(self, logs = {}):
-                if self.show_outer:
-                    self.tqdm_outer.close()
-
-            def append_logs(self, logs):
-                metrics = self.params['metrics']
-                for metric, value in logs.items():
-                    if metric in metrics:
-                        if metric in self.running_logs:
-                            self.running_logs[metric].append(value[()])
-                        else:
-                            self.running_logs[metric] = [value[()]]
-
-            def format_metrics(self, logs):
-                metrics = self.params['metrics']
-                strings = [self.metric_format.format(name = metric,
-                    value = np.mean(logs[metric], axis = None))
-                    for metric in metrics if metric in logs]
-                return self.separator.join(strings)
-
-        class EarlierStopping(EarlyStopping):
-            '''
-            Callback to stop training when enough time has passed.
-            Source: https://github.com/keras-team/keras-contrib/issues/87
-
-            INPUT
-                (int) seconds: maximum time before stopping.
-                (int) verbose: verbosity mode.
-            '''
-            def __init__(self, seconds = None, **kwargs):
-                super().__init__(**kwargs)
-                self.start_time = 0
-                self.seconds = seconds
-
-            def on_train_begin(self, logs = {}):
-                self.start_time = time.time()
-                super().on_train_begin(logs)
-
-            def on_batch_end(self, batch, logs = {}):
-                if self.seconds and time.time()-self.start_time > self.seconds:
-                    self.model.stop_training = True
-                    if self.verbose:
-                        print('Stopping after {} seconds.'\
-                            .format(self.seconds))
-
-            def on_epoch_end(self, epoch, logs = {}):
-                if self.seconds and time.time()-self.start_time > self.seconds:
-                    self.model.stop_training = True
-                    if self.restore_best_weights and self.best_weights:
-                        self.model.set_weights(self.best_weights) 
-                    if self.verbose:
-                        print('Stopping after {} seconds.'.\
-                            format(self.seconds))
-
-                # This restores best weights if we're beyond the first epoch
-                if logs.get(self.monitor):
-                    super().on_epoch_end(epoch, logs)
-
+        
         X_train, Y_train, X_val, Y_val = self.train_val_sets
 
         if self.number_of_features == 'infer':
@@ -392,9 +215,11 @@ class FNNs(Population):
                         x = Dropout(dropout)(x)
                 except:
                     break
+
         outputs = Dense(self.number_of_labels,
             activation = self.output_activation,
             kernel_initializer = fnn.initializer)(x)
+
         nn = Model(inputs = inputs, outputs = outputs)
 
         nn.compile(
@@ -410,9 +235,7 @@ class FNNs(Population):
             seconds = max_training_time
             )
 
-        tqdm_callback = TQDMCallback(
-            show_outer = False
-        )
+        tqdm_callback = TQDMCallback()
 
         callbacks = [early_stopping]
         if verbose:

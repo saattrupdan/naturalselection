@@ -10,13 +10,13 @@ Y_val = to_categorical(mnist.test_labels())
 fnns = ns.FNNs(
     size = 50,
     train_val_sets = (X_train, Y_train, X_val, Y_val),
-    loss_fn = 'binary_crossentropy',
+    loss_fn = 'categorical_crossentropy',
     score = 'accuracy',
     output_activation = 'softmax',
     max_training_time = 60
     )
 
-history = fnns.evolve(generations = 20)
+history = fnns.evolve(generations = 20, verbose = 2)
 print("Best overall genome:", history.fittest)
 
 history.plot(

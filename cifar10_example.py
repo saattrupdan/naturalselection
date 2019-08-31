@@ -12,20 +12,21 @@ Y_val = to_categorical(Y_val)
 fnns = ns.FNNs(
     size = 20,
     train_val_sets = (X_train, Y_train, X_val, Y_val),
-    loss_fn = 'binary_crossentropy',
+    loss_fn = 'categorical_crossentropy',
     score = 'accuracy',
     output_activation = 'softmax',
     patience = 5,
     min_change = 0,
     neurons = [64, 128, 256, 512, 768, 1024],
     uniform_layers = True,
-    max_number_of_hidden_layers = 4,
+    max_number_of_hidden_layers = 3,
     hidden_activation = ['relu', 'elu', 'tanh', 'sigmoid'],
     optimizer = ['rmsprop', 'adam', 'sgd', 'adagrad', 'adadelta',
                   'adamax', 'nadam'],
-    dropout = [0],
+    input_dropout = [0.2],
+    hidden_dropout = [0.2],
     batch_size = [64],
-    initializer = ['glorot_uniform']
+    initializer = ['glorot_uniform'],
     )
 
 history = fnns.evolve(
