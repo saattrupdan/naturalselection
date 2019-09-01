@@ -1,12 +1,19 @@
 import naturalselection as ns
+import time
 
 Pair = ns.Genus(x = range(1, 10000), y = range(1, 10000))
 
 def division(number):
-  return number.x / number.y
+    #time.sleep(1)
+    return number.x / number.y
 
-pairs = ns.Population(genus = Pair, size = 100, fitness_fn = division)
-history = pairs.evolve(generations = 50, progress_bars = 1)
+pairs = ns.Population(
+    genus = Pair, 
+    size = 500, 
+    fitness_fn = division,
+    )
+
+history = pairs.evolve(generations = 30)
 
 print(history.fittest)
 

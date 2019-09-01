@@ -1,6 +1,7 @@
 import numpy as np
 import os
 from functools import partial 
+from multiprocessing import cpu_count
 from naturalselection.core import Genus, Population
 
 class FNN(Genus):
@@ -56,6 +57,8 @@ class FNNs(Population):
         train_val_sets,
         size = 50, 
         initial_genome = None,
+        multiprocessing = True,
+        workers = cpu_count(),
         loss_fn = 'binary_crossentropy',
         number_of_features = 'infer', 
         number_of_labels = 'infer',
@@ -83,6 +86,8 @@ class FNNs(Population):
         self.train_val_sets                 = train_val_sets
         self.size                           = size
         self.initial_genome                 = initial_genome
+        self.multiprocessing                = multiprocessing
+        self.workers                        = workers
         self.loss_fn                        = loss_fn
         self.number_of_features             = number_of_features
         self.number_of_labels               = number_of_labels
@@ -102,6 +107,11 @@ class FNNs(Population):
         self.batch_size                     = batch_size
         self.initializer                    = initializer
         self.verbose                        = verbose
+
+        # Hard coded values for neural networks
+        self.allow_repeats = False
+        self.memory = 'inf'
+        self.progress_bars = 2
 
         self.genus = FNN(
             max_number_of_hidden_layers = self.max_number_of_hidden_layers,
