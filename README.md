@@ -61,37 +61,37 @@ Evolving population: 36%|██████           | 1805/5000 [00:09<00:16, 
 ![Plot showing fitness value over 4500 generations, converging steadily to the optimal filled out sequence of ones.](https://filedn.com/lRBwPhPxgV74tO0rDoe8SpH/naturalselection_data/onemax_example.png)
 
 
-Lastly, here is an example of finding a fully connected feedforward neural network to model [MNIST](https://en.wikipedia.org/wiki/MNIST_database). Note that this requires roughly 1GB memory available per CPU core (which usually is 4). If you don't have this available then set the `workers` parameter in the `evolve` call to something around 2 or 3, or set `multiprocessing = False` to turn parallelism off completely. 
-
-If you're the lucky owner of a GPU then you need to set `multiprocessing = False` as well (and set `max_training_time` to something smaller, and/or set `max_epochs` to something small).
+Lastly, here is an example of finding a fully connected feedforward neural network to model [MNIST](https://en.wikipedia.org/wiki/MNIST_database). Note that this requires roughly 1GB memory available per CPU core (which usually is 4). If you don't have this available then set the `workers` parameter in the `evolve` call to something around 2 or 3, or set `multiprocessing = False` to turn parallelism off completely (if you're the lucky owner of a GPU then you need to set `multiprocessing = False` as well).
 
 ```python
 >>> import naturalselection as ns
 >>>
->>> from tensorflow.keras.utils import to_categorical
->>> import mnist
->>>
 >>> def mnist_preprocessing(X):
-...     ''' Basic normalisation and scaling preprocessing. '''
-...     X = X.reshape((-1, 784))
-...     X = (X - X.min()) / (X.max() - X.min())
-...     X -= X.mean(axis = 0)
-...     return X
+...   ''' Basic normalisation and scaling preprocessing. '''
+...   X = X.reshape((-1, 784))
+...   X = (X - X.min()) / (X.max() - X.min())
+...   X -= X.mean(axis = 0)
+...   return X
 ... 
->>> X_train = mnist_preprocessing(mnist.train_images())
->>> Y_train = to_categorical(mnist.train_labels())
->>> X_val = mnist_preprocessing(mnist.test_images())
->>> Y_val = to_categorical(mnist.test_labels())
->>>
+>>> def mnist_train_val_sets():
+...   ''' Get normalised and scaled MNIST train- and val sets. '''
+...   from tensorflow.keras.utils import to_categorical
+...   import mnist
+...   X_train = preprocessing(mnist.train_images())
+...   Y_train = to_categorical(mnist.train_labels())
+...   X_val = preprocessing(mnist.test_images())
+...   Y_val = to_categorical(mnist.test_labels())
+...   return (X_train, Y_train, X_val, Y_val)
+...
 >>> fnns = ns.FNNs(
->>>     size = 50,
->>>     train_val_sets = (X_train, Y_train, X_val, Y_val),
->>>     loss_fn = 'categorical_crossentropy',
->>>     score = 'accuracy',
->>>     output_activation = 'softmax',
->>>     max_training_time = 60
->>>     )
->>> 
+... size = 50,
+... train_val_sets = mnist_train_val_sets(),
+... loss_fn = 'categorical_crossentropy',
+... score = 'accuracy',
+... output_activation = 'softmax',
+... max_training_time = 60
+... )
+...
 >>> history = fnns.evolve(generations = 20)
 Evolving population: 100%|██████████████████| 20/20 [4:28:35<00:00, 776.70s/it]
 Computing fitness for gen 19: 100%|████████████| 46/46 [13:22<00:00, 17.44s/it]
@@ -100,7 +100,7 @@ Computing fitness for gen 19: 100%|████████████| 46/46 [
 {'genome': {'optimizer': 'adam', 'hidden_activation': 'elu',
 'batch_size': 128, 'initializer': 'glorot_uniform', 'input_dropout': 0.1,
 'neurons0': 128, 'dropout0': 0.0, 'neurons1': 64, 'dropout1': 0.0,
-'neurons2': 1024, dropout2': 0.1, 'neurons3': 32, 'dropout3': 0.4,
+'neurons2': 1024, 'dropout2': 0.1, 'neurons3': 32, 'dropout3': 0.4,
 'neurons4': 256, 'dropout4': 0.1}, 'fitness': 0.973}
 >>> 
 >>> history.plot(
