@@ -1,29 +1,21 @@
 import naturalselection as ns
-import numpy as np
 
 # Length of number lists
-N = 10
+N = 100
 
-# Possible values in number lists
-K = 50000
-
-BitString = ns.Genus(**{f'x{n}' : range(K) for n in range(N)})
+BitString = ns.Genus(**{f'x{n}' : (0,1) for n in range(N)})
 
 def sum_bits(bitstring):
   return sum(bitstring.get_genome().values())
 
 bitstrings = ns.Population(
     genus = BitString, 
-    size = 100,
+    size = 5,
     fitness_fn = sum_bits,
-    verbose = 1
     )
 
-history = bitstrings.evolve(
-    generations = int(1e6),
-    progress_bars = 1,
-    goal = 499990
-    )
+history = bitstrings.evolve(generations = 5000, goal = 100)
 
-print('Most fit:', history.fittest)
-history.plot()
+print(f"Number of ones achieved: {history.fittest['fitness']}")
+
+history.plot(only_show_max = True)
