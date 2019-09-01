@@ -3,6 +3,7 @@ import os
 from functools import partial 
 from multiprocessing import cpu_count
 from naturalselection.core import Genus, Population, Organism
+import logging
 
 class FNN(Genus):
     ''' Feedforward fully connected neural network genus.
@@ -19,11 +20,11 @@ class FNN(Genus):
         (iterable) initializer: keras initializers
         '''
     def __init__(self,
-        max_number_of_hidden_layers = 5,
+        max_number_of_hidden_layers = 3,
         uniform_layers = False,
-        input_dropout = np.arange(0, 0.6, 0.1),
-        hidden_dropout = np.arange(0, 0.6, 0.1),
-        neurons = np.array([2 ** n for n in range(4, 13)]),
+        input_dropout = np.arange(0, 0.6, 0.25),
+        hidden_dropout = np.arange(0, 0.6, 0.25),
+        neurons = np.array([2 ** n for n in range(4, 11)]),
         optimizer = np.array(['sgd', 'rmsprop', 'adagrad', 'adadelta',
                               'adamax', 'adam', 'nadam']),
         hidden_activation = np.array(['relu', 'elu', 'softplus', 'softsign']),
@@ -57,6 +58,10 @@ class FNNs(Population):
         train_val_sets,
         size = 50, 
         initial_genome = None,
+        breeding_rate = 0.8,
+        mutation_rate = 0.2,
+        mutation_factor = 'default',
+        elitism_rate = 0.05,
         multiprocessing = True,
         workers = cpu_count(),
         loss_fn = 'binary_crossentropy',
@@ -68,16 +73,16 @@ class FNNs(Population):
         patience = 5, 
         min_change = 1e-4,
         max_training_time = None, 
-        max_number_of_hidden_layers = 5,
+        max_number_of_hidden_layers = 3,
         uniform_layers = False,
-        input_dropout = np.arange(0, 0.6, 0.1),
-        hidden_dropout = np.arange(0, 0.6, 0.1),
-        neurons = np.array([2 ** n for n in range(4, 13)]),
+        input_dropout = np.arange(0, 0.6, 0.25),
+        hidden_dropout = np.arange(0, 0.6, 0.25),
+        neurons = np.array([2 ** n for n in range(4, 11)]),
         optimizer = np.array(['sgd', 'rmsprop', 'adagrad', 'adadelta',
                               'adamax', 'adam', 'nadam']),
         hidden_activation = np.array(['relu', 'elu', 'softplus',
                                       'softsign']),
-        batch_size = np.array([2 ** n for n in range(4, 12)]),
+        batch_size = np.array([2 ** n for n in range(4, 7)]),
         initializer = np.array(['lecun_uniform', 'lecun_normal',
                                 'glorot_uniform', 'glorot_normal',
                                 'he_uniform', 'he_normal']),
@@ -86,6 +91,10 @@ class FNNs(Population):
         self.train_val_sets                 = train_val_sets
         self.size                           = size
         self.initial_genome                 = initial_genome
+        self.breeding_rate                  = breeding_rate
+        self.mutation_rate                  = mutation_rate
+        self.mutation_factor                = mutation_factor
+        self.elitism_rate                   = elitism_rate
         self.multiprocessing                = multiprocessing
         self.workers                        = workers
         self.loss_fn                        = loss_fn
@@ -108,11 +117,23 @@ class FNNs(Population):
         self.initializer                    = initializer
         self.verbose                        = verbose
 
+        logging.basicConfig(format = '%(levelname)s: %(message)s')
+        self.logger = logging.getLogger()
+
+        if not verbose:
+            self.logger.setLevel(logging.WARNING)
+        elif verbose == 1:
+            self.logger.setLevel(logging.INFO)
+        elif verbose == 2:
+            self.logger.setLevel(logging.DEBUG)
+
+        self.logger.info("Creating population...")
+
         # Hard coded values for neural networks
         self.allow_repeats = False
         self.memory = 'inf'
         self.progress_bars = 2
-
+        
         self.genus = FNN(
             max_number_of_hidden_layers = self.max_number_of_hidden_layers,
             uniform_layers              = self.uniform_layers,
@@ -131,7 +152,7 @@ class FNNs(Population):
             patience            = self.patience,
             min_change          = self.min_change,
             max_training_time   = self.max_training_time,
-            verbose             = self.verbose,
+            verbose             = 0,
             file_name           = None
             )
 
@@ -139,7 +160,7 @@ class FNNs(Population):
 
             # Create a population of identical organisms
             self.population = np.array(
-                [Organism(FNN(), **initial_genome) for _ in range(size)])
+                [Organism(self.genus, **initial_genome) for _ in range(size)])
 
             # Mutate 80% of the population
             rnd = np.random.random(self.population.shape)
@@ -147,7 +168,7 @@ class FNNs(Population):
                 if rnd[i] > 0.2:
                     org.mutate()
         else:
-            self.population = genus.create_organisms(size)
+            self.population = self.genus.create_organisms(size)
 
         self.fittest = np.random.choice(self.population)
 
@@ -155,7 +176,7 @@ class FNNs(Population):
         patience = 5, max_training_time = None, file_name = None):
 
         best_fnn = self.fittest        
-        score = self.train_fnn(
+        self.train_fnn(
             fnn                 = best_fnn,
             max_epochs          = max_epochs,
             patience            = patience,
@@ -164,7 +185,7 @@ class FNNs(Population):
             verbose             = 1,
             file_name           = file_name
             )
-        return score
+        return fnn.fitness
 
     def train_fnn(self, fnn, max_epochs = 1000000, patience = 5,
         min_change = 1e-4, max_training_time = None, verbose = False,
@@ -203,13 +224,12 @@ class FNNs(Population):
         deprecation._PRINT_DEPRECATION_WARNINGS = False
         os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
-        
         X_train, Y_train, X_val, Y_val = self.train_val_sets
 
         if self.number_of_features == 'infer':
-            self.number_of_features = X_train.shape[1]
+            self.number_of_features = X_val.shape[1]
         if self.number_of_labels == 'infer':
-            self.number_of_labels = Y_train.shape[1]
+            self.number_of_labels = Y_val.shape[1]
 
         inputs = Input(shape = (self.number_of_features,))
         x = Dropout(fnn.input_dropout)(inputs)
@@ -270,7 +290,7 @@ class FNNs(Population):
         if file_name:
             nn.save("{}.h5".format(file_name))
 
-        if Y_val.shape[1] > 1:
+        if self.number_of_labels > 1:
             average = 'micro'
         else:
             average = None
@@ -281,13 +301,16 @@ class FNNs(Population):
             fitness = accuracy_score(Y_val, Y_hat)
         elif self.score == 'f1':
             Y_hat = np.greater(Y_hat, 0.5)
-            fitness = f1_score(Y_val, Y_hat, average = average)
+            fitness = f1_score(Y_val, Y_hat, 
+                average = average)
         elif self.score == 'precision':
             Y_hat = np.greater(Y_hat, 0.5)
-            fitness = precision_score(Y_val, Y_hat, average = average)
+            fitness = precision_score(Y_val, Y_hat, 
+                average = average)
         elif self.score == 'recall':
             Y_hat = np.greater(Y_hat, 0.5)
-            fitness = recall_score(Y_val, Y_hat, average = average)
+            fitness = recall_score(Y_val, Y_hat, 
+                average = average)
         elif self.score == 'loss':
             fitness = np.divide(1, nn.evaluate(X_val, Y_val))
         else:
@@ -296,7 +319,9 @@ class FNNs(Population):
         
         # Clear tensorflow session to avoid memory leak
         K.clear_session()
-            
+        
+        fnn.fitness = fitness
+
         return fitness
 
 

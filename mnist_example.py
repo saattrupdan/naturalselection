@@ -20,28 +20,10 @@ fnns = ns.FNNs(
     loss_fn = 'categorical_crossentropy',
     score = 'accuracy',
     output_activation = 'softmax',
-    max_training_time = 60,
-    multiprocessing = False,
-    initial_genome = {
-        'optimizer' : 'adam',
-        'hidden_activation' : 'relu',
-        'batch_size' : 1024,
-        'initializer' : 'he_normal',
-        'input_dropout' : 0.0,
-        'neurons0' : 512,
-        'neurons1' : 512,
-        'neurons2' : 512,
-        'neurons3' : 512,
-        'neurons4' : 512,
-        'dropout0' : 0.0,
-        'dropout1' : 0.0,
-        'dropout2' : 0.0,
-        'dropout3' : 0.0,
-        'dropout4' : 0.0
-        }
+    max_training_time = 120,
     )
 
-history = fnns.evolve(generations = 20)
+history = fnns.evolve(generations = 30)
 print("Best overall genome:", history.fittest)
 
 history.plot(

@@ -244,9 +244,6 @@ class Population():
             (ndarray) fitness values
         '''
 
-        pop = self.population
-        fitnesses = np.zeros(pop.size)
-
         unique_genomes = np.array([dict(gene) for gene in
             set(frozenset(self.immute_dict(genome).items())
             for genome in self.get_genomes())
@@ -261,14 +258,14 @@ class Population():
 
             indices = np.array([((np.where(g_prev == org.get_genome())[0][0],
                 np.where(g_prev == org.get_genome())[1][0]), idx)
-                for (idx, org) in enumerate(pop)
+                for (idx, org) in enumerate(self.population)
                 if org.get_genome() in g_prev
                 ])
             past_indices = np.array([idx for (_, idx) in indices])
 
             # Load previous fitnesses of genomes that are occuring now
             for (past_idx, idx) in indices:
-                fitnesses[idx] = f_prev[past_idx[0], past_idx[1]]
+                self.population[idx].fitness = f_prev[past_idx[0], past_idx[1]]
 
             # Remove genomes that have occured previously
             unique_genomes = np.array([genome for genome in unique_genomes
@@ -285,10 +282,8 @@ class Population():
         # If there are any organisms whose fitness we didn't already
         # know then compute them
         if unique_indices.size:
-            unique_orgs = pop[unique_indices]
 
             # Compute fitness values without computing the same one twice
-            fn = self.fitness_fn
             with warnings.catch_warnings():
                 f1_warn = 'F-score is ill-defined and being set to ' \
                           '0.0 due to no predicted samples.'
@@ -296,39 +291,50 @@ class Population():
 
                 if self.multiprocessing:
                     with Pool(processes = self.workers) as pool:
+
                         if self.progress_bars >= 2:
-                            fit_iter = tqdm(zip(unique_indices, 
-                                pool.imap(fn, unique_orgs)),
-                                total = unique_orgs.size)
+                            fit_iter = tqdm(
+                                zip(unique_indices, pool.imap(self.fitness_fn, 
+                                    self.population[unique_indices])), 
+                                total = unique_indices.size
+                                )
                             fit_iter.set_description("Computing fitness")
                         else:
-                            fit_iter = zip(unique_indices,
-                                pool.map(fn, unique_orgs))
+                            fit_iter = zip(
+                                unique_indices,
+                                pool.imap(self.fitness_fn, 
+                                    self.population[unique_indices])
+                                )
                         for (i, new_fitness) in fit_iter:
-                            fitnesses[i] = new_fitness
+                            self.population[i].fitness = new_fitness
                 else:
                     if self.progress_bars >= 2:
-                        fit_iter = tqdm(zip(unique_indices,
-                            map(fn, unique_orgs)),
-                            total = unique_orgs.size)
+                        fit_iter = tqdm(
+                            zip(unique_indices, map(self.fitness_fn, 
+                                self.population[unique_indices])),
+                            total = unique_indices.size
+                            )
                         fit_iter.set_description("Computing fitness")
                     else:
-                        fit_iter = zip(unique_indices,map(fn, unique_orgs))
+                        fit_iter = zip(
+                            unique_indices, 
+                            map(self.fitness_fn, 
+                                self.population[unique_indices])
+                            )
                     for (i, new_fitness) in fit_iter:
-                        fitnesses[i] = new_fitness
+                        self.population[i].fitness = new_fitness
 
 
         # Copy out the fitness values to the other organisms with same genome
-        for (i, org) in enumerate(pop):
+        for (i, org) in enumerate(self.population):
             if i not in unique_indices and i not in past_indices:
                 prev_unique_idx = np.min(np.array([idx
                     for idx in unique_indices
                     if self.immute_dict(org.get_genome()) == \
-                        self.immute_dict(pop[idx].get_genome())
+                        self.immute_dict(self.population[idx].get_genome())
                     ]))
-                fitnesses[i] = fitnesses[prev_unique_idx]
-
-        return fitnesses
+                self.population[i].fitness = \
+                    self.population[prev_unique_idx].fitness
 
 
     def sample(self, amount = 1):
@@ -401,13 +407,10 @@ class Population():
                 break
 
             # Compute fitness values
-            fitnesses = self.get_fitness(history = history)
+            self.get_fitness(history = history)
+            fitnesses = np.array([org.fitness for org in self.population])
             
             self.logger.debug('Updating fitness values...')
-           
-            # Update fitness values 
-            for (i, org) in enumerate(self.population):
-                org.fitness = fitnesses[i]
 
             if max(fitnesses) > self.fittest.fitness:
                 self.fittest = self.population[np.argmax(fitnesses)]
