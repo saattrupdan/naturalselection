@@ -20,10 +20,10 @@ fnns = ns.FNNs(
     loss_fn = 'categorical_crossentropy',
     score = 'accuracy',
     output_activation = 'softmax',
-    max_training_time = 120,
+    max_training_time = 60,
     )
 
-history = fnns.evolve(generations = 30)
+history = fnns.evolve(generations = 20)
 print("Best overall genome:", history.fittest)
 
 history.plot(

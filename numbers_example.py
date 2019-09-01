@@ -15,4 +15,4 @@ history = pairs.evolve(generations = 100)
 
 print(history.fittest)
 
-history.plot(only_show_max = False)
+history.plot()

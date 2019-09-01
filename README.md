@@ -18,30 +18,30 @@ Here is a toy example optimising a pair of numbers with respect to division.
 >>> import naturalselection as ns
 >>>
 >>> Pair = ns.Genus(x = range(1, 10000), y = range(1, 10000))
+>>>
 >>> def division(number):
 ...   return number.x / number.y
 ...
 >>> pairs = ns.Population(genus = Pair, size = 100, fitness_fn = division)
->>> history = pairs.evolve(generations = 50, progress_bars = 1)
-Evolving population: 100%|█████████████████████| 50/50 [00:09<00:00,  5.28it/s]
+>>>
+>>> history = pairs.evolve(generations = 100)
+Evolving population: 100%|██████████████████| 100/100 [00:05<00:00,  19.59it/s]
 >>>
 >>> history.fittest
-{'genome': {'x': 9974, 'y': 4}, 'fitness': 2493.5}
+{'genome': {'x': 9922, 'y': 10}, 'fitness': 992.2}
 >>>
 >>> history.plot()
 ```
 
-![Plot showing fitness value over 50 generations. The mean rises from 0 to 1500 in the first five generations, whereafter it slowly increases to roughly 2200. The maximum value converges to around 25000 after seven generations, and the standard deviation stays at around 700 throughout.](https://filedn.com/lRBwPhPxgV74tO0rDoe8SpH/naturalselection_data/numbers_example.png)
+![Plot showing fitness value over 100 generations.](https://filedn.com/lRBwPhPxgV74tO0rDoe8SpH/naturalselection_data/numbers_example.png)
 
 
-We can also easily solve the classical [OneMax problem](http://tracer.lcc.uma.es/problems/onemax/onemax.html), which is about finding the bit-string of a given length with all 1's. Here we set `goal=100` in the `evolve` function to allow for early stopping if we reach our goal before the maximum number of generations, which we here set to 10,000. Note that it only takes a minute, where larger populations seem to take longer despite needing much fewer generations to finish evolving.
+We can also easily solve the classical [OneMax problem](http://tracer.lcc.uma.es/problems/onemax/onemax.html), which is about finding the bit-string of a given length with all 1's. Here we set `goal = 100` in the `evolve` function to allow for early stopping if we reach our goal before the maximum number of generations, which we here set to 5,000. Note that it only takes nine seconds, however.
 
 ```python
 >>> import naturalselection as ns
 >>>
->>> # Length of the bit strings
->>> N = 100
->>> BitString = ns.Genus(**{'x{}'.format(n) : (0,1) for n in range(N)})
+>>> BitString = ns.Genus(**{f'x{n}' : (0,1) for n in range(100)})
 >>>
 >>> def sum_bits(bitstring):
 ...   return sum(bitstring.get_genome().values())
@@ -52,17 +52,13 @@ We can also easily solve the classical [OneMax problem](http://tracer.lcc.uma.es
 ...   fitness_fn = sum_bits
 ...   )
 >>> 
->>> history = bitstrings.evolve(
-...   generations = 10000,
-...   goal = 100, 
-...   progress_bars = 1
-...   )
-Evolving population: 45%|████████         | 4480/10000 [01:00<01:58, 46.43it/s]
+>>> history = bitstrings.evolve(generations = 500, goal = 100)
+Evolving population: 36%|██████           | 1805/5000 [00:09<00:16, 194.43it/s]
 >>> 
->>> history.plot()
+>>> history.plot(only_show_max = True)
 ```
 
-![Plot showing fitness value over 4500 generations, converging steadily to the optimal filled out sequence of ones.](https://filedn.com/lRBwPhPxgV74tO0rDoe8SpH/naturalselection_data/1max_example.png)
+![Plot showing fitness value over 4500 generations, converging steadily to the optimal filled out sequence of ones.](https://filedn.com/lRBwPhPxgV74tO0rDoe8SpH/naturalselection_data/onemax_example.png)
 
 
 Lastly, here is an example of finding a fully connected feedforward neural network to model [MNIST](https://en.wikipedia.org/wiki/MNIST_database). Note that this requires roughly 1GB memory available per CPU core (which usually is 4). If you don't have this available then set the `workers` parameter in the `evolve` call to something around 2 or 3, or set `multiprocessing = False` to turn parallelism off completely. 
@@ -72,14 +68,19 @@ If you're the lucky owner of a GPU then you need to set `multiprocessing = False
 ```python
 >>> import naturalselection as ns
 >>>
->>> # MNIST packages
 >>> from tensorflow.keras.utils import to_categorical
 >>> import mnist
 >>>
->>> # Standard train and test sets for MNIST
->>> X_train = ((mnist.train_images() / 255) - 0.5).reshape((-1, 784))
+>>> def mnist_preprocessing(X):
+...     ''' Basic normalisation and scaling preprocessing. '''
+...     X = X.reshape((-1, 784))
+...     X = (X - X.min()) / (X.max() - X.min())
+...     X -= X.mean(axis = 0)
+...     return X
+... 
+>>> X_train = mnist_preprocessing(mnist.train_images())
 >>> Y_train = to_categorical(mnist.train_labels())
->>> X_val = ((mnist.test_images() / 255) - 0.5).reshape((-1, 784))
+>>> X_val = mnist_preprocessing(mnist.test_images())
 >>> Y_val = to_categorical(mnist.test_labels())
 >>>
 >>> fnns = ns.FNNs(
@@ -109,6 +110,8 @@ Computing fitness for gen 19: 100%|████████████| 46/46 [
 ```
 
 ![Plot showing fitness value (which is accuracy in this case) over 20 generations, converging to roughly 97%.](https://filedn.com/lRBwPhPxgV74tO0rDoe8SpH/naturalselection_data/mnist_example.png)
+
+We can then train the best performing model and save it locally:
 
 ```python
 >>> # Training the best model and saving it to mnist_model.h5
