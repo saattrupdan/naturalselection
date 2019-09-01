@@ -2,7 +2,7 @@ import numpy as np
 import os
 from functools import partial 
 from multiprocessing import cpu_count
-from naturalselection.core import Genus, Population
+from naturalselection.core import Genus, Population, Organism
 
 class FNN(Genus):
     ''' Feedforward fully connected neural network genus.
