@@ -199,8 +199,9 @@ class Population():
                 [Organism(genus, **initial_genome) for _ in range(size)])
 
             # Mutate 80% of the population
-            for org in self.population:
-                if np.random.random() > 0.2:
+            rnd = np.random.random(self.population.shape)
+            for (i, org) in enumerate(self.population):
+                if rnd[i] > 0.2:
                     org.mutate()
         else:
             self.population = genus.create_organisms(size)

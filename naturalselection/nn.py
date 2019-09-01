@@ -135,13 +135,19 @@ class FNNs(Population):
             file_name           = None
             )
 
-        if self.initial_genome:
+        if initial_genome:
+
+            # Create a population of identical organisms
             self.population = np.array(
-                [Organism(self.genus, **self.initial_genome)
-                for _ in range(self.size)]
-                )
+                [Organism(FNN(), **initial_genome) for _ in range(size)])
+
+            # Mutate 80% of the population
+            rnd = np.random.random(self.population.shape)
+            for (i, org) in enumerate(self.population):
+                if rnd[i] > 0.2:
+                    org.mutate()
         else:
-            self.population = self.genus.create_organisms(self.size)
+            self.population = genus.create_organisms(size)
 
         self.fittest = np.random.choice(self.population)
 

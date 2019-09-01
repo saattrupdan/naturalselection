@@ -21,6 +21,24 @@ fnns = ns.FNNs(
     score = 'accuracy',
     output_activation = 'softmax',
     max_training_time = 60,
+    multiprocessing = False,
+    initial_genome = {
+        'optimizer' : 'adam',
+        'hidden_activation' : 'relu',
+        'batch_size' : 1024,
+        'initializer' : 'he_normal',
+        'input_dropout' : 0.0,
+        'neurons0' : 512,
+        'neurons1' : 512,
+        'neurons2' : 512,
+        'neurons3' : 512,
+        'neurons4' : 512,
+        'dropout0' : 0.0,
+        'dropout1' : 0.0,
+        'dropout2' : 0.0,
+        'dropout3' : 0.0,
+        'dropout4' : 0.0
+        }
     )
 
 history = fnns.evolve(generations = 20)
