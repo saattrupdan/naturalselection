@@ -25,16 +25,17 @@ fnns = ns.FNNs(
     score = 'accuracy',
     output_activation = 'softmax',
     max_training_time = 60,
-    multiprocessing = False
     )
 
-history = fnns.evolve(generations = 20)
+history = fnns.evolve(generations = 30)
 print("Best overall genome:", history.fittest)
 
 history.plot(
     title = "Validation accuracy by generation",
     ylabel = "Validation accuracy",
+    show_plot = False,
+    file_name = "mnist_plot.png"
     )
 
-best_score = fnns.train_best()
-print("Best score:", best_score)
+#best_score = fnns.train_best()
+#print("Best score:", best_score)

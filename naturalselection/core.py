@@ -1,7 +1,7 @@
 import numpy as np
 import sys
 import os
-from functools import reduce
+from functools import reduce, partial
 
 # Suppressing warnings
 import warnings
@@ -13,10 +13,12 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm, trange
 
 # Parallelising fitness
-from multiprocessing import Pool, cpu_count
+import multiprocessing as mp
 
 # Logging
 import logging
+
+from memory_profiler import profile
 
 class Genus():
     ''' Storing information about all the possible gene combinations.
@@ -143,8 +145,11 @@ class Population():
                 across generations
         (bool) multiprocessing = False: whether fitnesses should be
                computed in parallel
-        (int) workers = cpu_count(): how many workers to use if
+        (int) workers = mp.cpu_count(): how many workers to use if
               multiprocessing is True
+        (int) chunksize = 1: (only relevant if multiprocessing is true and
+              progress_bars is at least 2) amount of fitness computations
+              that are sent to each process
         (int) progress_bars = 1: number of progress bars to show, where 1
               only shows the main evolution progress, and 2 shows both
               the evolution and the fitness computation per generation
@@ -158,8 +163,9 @@ class Population():
 
     def __init__(self, genus, size, fitness_fn, initial_genome = None,
         breeding_rate = 0.8, mutation_rate = 0.2, mutation_factor = 'default', 
-        elitism_rate = 0.05, multiprocessing = False, workers = cpu_count(), 
-        progress_bars = 1, memory = 'inf', allow_repeats = True, verbose = 0):
+        elitism_rate = 0.05, multiprocessing = False, workers = mp.cpu_count(),
+        chunksize = 1, progress_bars = 1, memory = 'inf', allow_repeats = True,
+        verbose = 0):
 
         self.genus = genus
         self.size = size
@@ -171,6 +177,7 @@ class Population():
         self.elitism_rate = elitism_rate
         self.multiprocessing = multiprocessing
         self.workers = workers
+        self.chunksize = chunksize
         self.progress_bars = progress_bars
         self.memory = memory
         self.allow_repeats = allow_repeats
@@ -273,30 +280,86 @@ class Population():
                           '0.0 due to no predicted samples.'
                 warnings.filterwarnings('ignore', message = f1_warn)
 
-                # Set the mapping function
                 if self.multiprocessing:
-                    pool = Pool(processes = self.workers)
-                    map_fn = pool.imap
+
+                    # Define queues to organise the parallelising
+                    todo = mp.Queue(unique_indices.size)
+                    done = mp.Queue(unique_indices.size)
+                    in_progress = mp.Queue(self.workers)
+                    for idx in unique_indices:
+                        todo.put(idx)
+
+                    def worker(todo, in_progress, done):
+                        ''' Fitness computing worker. '''
+                        while True:
+                            if in_progress.qsize() < self.workers:
+                                try:
+                                    idx = todo.get_nowait()
+                                except:
+                                    break
+                                else:
+                                    in_progress.put(idx)
+                                    org = self.population[idx]
+                                    fitness = self.fitness_fn(org)
+                                    done.put((idx, fitness))
+                                    in_progress.get()
+
+                    # Define our processes
+                    processes = [mp.Process(target = worker,
+                        args = (todo, in_progress, done))
+                        for _ in range(self.workers)]
+
+                    # Daemonise the processes, meaning they close when they
+                    # they finish, and start them
+                    for p in processes:
+                        p.daemon = True
+                        p.start()
+
+                    # This is the iterable with (idx, fitness) values
+                    idx_fits = (done.get() for _ in unique_indices)
+
                 else:
-                    map_fn = map
-
-                # The main iterator, which will compute the fitness values
-                fit_iter = zip(unique_indices, 
-                    map_fn(self.fitness_fn, self.population[unique_indices]))
-
-                # Add a progress bar
+                    # This is the iterable with (idx, fitness) values,
+                    # obtained without any parallelising
+                    idx_fits = self.population[unique_indices]
+                    idx_fits = map(self.fitness_fn, idx_fits)
+                    idx_fits = zip(unique_indices, idx_fits)
+        
+                # Set up a progress bar
                 if self.progress_bars >= 2:
-                    fit_iter = tqdm(fit_iter, total = unique_indices.size)
-                    fit_iter.set_description("Computing fitness")
+                    idx_fits = tqdm(idx_fits, total = unique_indices.size)
+                    idx_fits.set_description("Computing fitness")
 
-                # Compute the fitness values by iterating over fit_iter
-                for (idx, new_fitness) in fit_iter:
+                # Compute the fitness values
+                for (idx, new_fitness) in idx_fits:
                     self.population[idx].fitness = new_fitness
 
-                # Close the multiprocessing pool
+                # Join up the processes
                 if self.multiprocessing:
-                    pool.close()
-                    pool.join()
+                    for p in processes:
+                        p.join()
+               
+                # Close the progress bar 
+                if self.progress_bars >= 2:
+                    idx_fits.close()
+
+
+                # Add a progress bar
+                #if self.progress_bars >= 2:
+                #    idx_fits = tqdm(idx_fits, total = unique_indices.size)
+                #    idx_fits.set_description("Computing fitness")
+
+                ## Compute the fitness values by iterating
+                #for (idx, new_fitness) in idx_fits:
+                #    self.population[idx].fitness = new_fitness
+
+                #if self.progress_bars >= 2:
+                #    idx_fits.close()
+
+                # Close the multiprocessing pool
+                #if self.multiprocessing:
+                #    pool.close()
+                #    pool.join()
 
         # Copy out the fitness values to the other organisms with same genome
         for (i, org) in enumerate(self.population):
@@ -308,7 +371,6 @@ class Population():
                     ))
                 self.population[i].fitness = \
                     self.population[prev_unique_idx].fitness
-
 
     def sample(self, amount = 1):
         ''' Sample a fixed amount of organisms from the population,
@@ -459,6 +521,8 @@ class Population():
                 .format(self.fittest.fitness))
             self.logger.info(self.fittest.get_genome())
 
+        gen_iter.close()
+
         if self.progress_bars >= 2:
             print("")
 
@@ -541,12 +605,15 @@ class History():
         stds = np.std(fits, axis = 1)
         xs = np.arange(mem)
 
+        if gens == 1:
+            discrete = True
+
         if show_max or only_show_max:
             maxs = np.array([np.max(fits[x, :]) for x in xs])
 
         plt.style.use("ggplot")
         plt.figure()
-        plt.xlim(gens - mem, gens - 1)
+        plt.xlim(gens - mem - 1, gens)
         plt.title(title)
         plt.xlabel(xlabel)
         plt.ylabel(ylabel)

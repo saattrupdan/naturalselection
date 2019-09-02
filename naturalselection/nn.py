@@ -1,15 +1,16 @@
 import numpy as np
 import os
 from functools import partial 
-from multiprocessing import cpu_count
+from multiprocessing import cpu_count, current_process
 from naturalselection.core import Genus, Population, Organism
 import logging
+from memory_profiler import profile
 
 class FNN(Genus):
     ''' Feedforward fully connected neural network genus.
 
     INPUT:
-        (int) max_number_of_hidden_layers
+        (int) max_nm_hidden_layers
         (bool) uniform_layers: whether all hidden layers should
                have the same amount of neurons and dropout
         (iterable) dropout: values for dropout
@@ -20,7 +21,7 @@ class FNN(Genus):
         (iterable) initializer: keras initializers
         '''
     def __init__(self,
-        max_number_of_hidden_layers = 3,
+        max_nm_hidden_layers = 3,
         uniform_layers = False,
         input_dropout = np.arange(0, 0.6, 0.25),
         hidden_dropout = np.arange(0, 0.6, 0.25),
@@ -42,13 +43,13 @@ class FNN(Genus):
         if uniform_layers:
             self.neurons = np.unique(np.asarray(neurons))
             self.dropout = np.unique(np.asarray(hidden_dropout))
-            self.number_of_hidden_layers = \
-                np.arange(1, max_number_of_hidden_layers + 1)
+            self.nm_hidden_layers = \
+                np.arange(1, max_nm_hidden_layers + 1)
         else:
             neurons = np.unique(np.append(neurons, 0))
             dropout = np.around(np.unique(np.append(hidden_dropout, 0)), 2)
             layer_info = {}
-            for layer_idx in range(max_number_of_hidden_layers):
+            for layer_idx in range(max_nm_hidden_layers):
                 layer_info["neurons{}".format(layer_idx)] = neurons
                 layer_info["dropout{}".format(layer_idx)] = dropout
             self.__dict__.update(layer_info)
@@ -65,15 +66,15 @@ class FNNs(Population):
         multiprocessing = True,
         workers = cpu_count(),
         loss_fn = 'binary_crossentropy',
-        number_of_features = 'infer', 
-        number_of_labels = 'infer',
+        nm_features = 'infer', 
+        nm_labels = 'infer',
         score = 'accuracy', 
         output_activation = 'sigmoid',
         max_epochs = 1000000, 
         patience = 5, 
         min_change = 1e-4,
         max_training_time = None, 
-        max_number_of_hidden_layers = 3,
+        max_nm_hidden_layers = 3,
         uniform_layers = False,
         input_dropout = np.arange(0, 0.6, 0.25),
         hidden_dropout = np.arange(0, 0.6, 0.25),
@@ -88,34 +89,34 @@ class FNNs(Population):
                                 'he_uniform', 'he_normal']),
         verbose = 0):
 
-        self.train_val_sets                 = train_val_sets
-        self.size                           = size
-        self.initial_genome                 = initial_genome
-        self.breeding_rate                  = breeding_rate
-        self.mutation_rate                  = mutation_rate
-        self.mutation_factor                = mutation_factor
-        self.elitism_rate                   = elitism_rate
-        self.multiprocessing                = multiprocessing
-        self.workers                        = workers
-        self.loss_fn                        = loss_fn
-        self.number_of_features             = number_of_features
-        self.number_of_labels               = number_of_labels
-        self.score                          = score
-        self.output_activation              = output_activation
-        self.max_epochs                     = max_epochs 
-        self.patience                       = patience
-        self.min_change                     = min_change
-        self.max_training_time              = max_training_time
-        self.max_number_of_hidden_layers    = max_number_of_hidden_layers
-        self.uniform_layers                 = uniform_layers
-        self.input_dropout                  = input_dropout
-        self.hidden_dropout                 = hidden_dropout
-        self.neurons                        = neurons
-        self.optimizer                      = optimizer
-        self.hidden_activation              = hidden_activation
-        self.batch_size                     = batch_size
-        self.initializer                    = initializer
-        self.verbose                        = verbose
+        self.train_val_sets       = train_val_sets
+        self.size                 = size
+        self.initial_genome       = initial_genome
+        self.breeding_rate        = breeding_rate
+        self.mutation_rate        = mutation_rate
+        self.mutation_factor      = mutation_factor
+        self.elitism_rate         = elitism_rate
+        self.multiprocessing      = multiprocessing
+        self.workers              = workers
+        self.loss_fn              = loss_fn
+        self.nm_features          = nm_features
+        self.nm_labels            = nm_labels
+        self.score                = score
+        self.output_activation    = output_activation
+        self.max_epochs           = max_epochs 
+        self.patience             = patience
+        self.min_change           = min_change
+        self.max_training_time    = max_training_time
+        self.max_nm_hidden_layers = max_nm_hidden_layers
+        self.uniform_layers       = uniform_layers
+        self.input_dropout        = input_dropout
+        self.hidden_dropout       = hidden_dropout
+        self.neurons              = neurons
+        self.optimizer            = optimizer
+        self.hidden_activation    = hidden_activation
+        self.batch_size           = batch_size
+        self.initializer          = initializer
+        self.verbose              = verbose
 
         logging.basicConfig(format = '%(levelname)s: %(message)s')
         self.logger = logging.getLogger()
@@ -133,17 +134,18 @@ class FNNs(Population):
         self.allow_repeats = False
         self.memory = 'inf'
         self.progress_bars = 2
+        self.chunksize = np.ceil(self.size / self.workers).astype(int)
         
         self.genus = FNN(
-            max_number_of_hidden_layers = self.max_number_of_hidden_layers,
-            uniform_layers              = self.uniform_layers,
-            input_dropout               = self.input_dropout,
-            hidden_dropout              = self.hidden_dropout,
-            neurons                     = self.neurons,
-            optimizer                   = self.optimizer,
-            hidden_activation           = self.hidden_activation,
-            batch_size                  = self.batch_size,
-            initializer                 = self.initializer
+            max_nm_hidden_layers = self.max_nm_hidden_layers,
+            uniform_layers       = self.uniform_layers,
+            input_dropout        = self.input_dropout,
+            hidden_dropout       = self.hidden_dropout,
+            neurons              = self.neurons,
+            optimizer            = self.optimizer,
+            hidden_activation    = self.hidden_activation,
+            batch_size           = self.batch_size,
+            initializer          = self.initializer
             )
 
         self.fitness_fn = partial(
@@ -156,9 +158,11 @@ class FNNs(Population):
             file_name           = None
             )
 
+        # If user has supplied an initial genome then construct a population
+        # which is very similar to that
         if initial_genome:
 
-            # Create a population of identical organisms
+            # Create a population of organisms all with the initial genome
             self.population = np.array(
                 [Organism(self.genus, **initial_genome) for _ in range(size)])
 
@@ -170,13 +174,15 @@ class FNNs(Population):
         else:
             self.population = self.genus.create_organisms(size)
 
+        # We do not have access to fitness values yet, so choose the 'fittest
+        # organism' to just be a random one
         self.fittest = np.random.choice(self.population)
 
     def train_best(self, max_epochs = 1000000, min_change = 1e-4,
         patience = 5, max_training_time = None, file_name = None):
 
         best_fnn = self.fittest        
-        self.train_fnn(
+        fitness = self.train_fnn(
             fnn                 = best_fnn,
             max_epochs          = max_epochs,
             patience            = patience,
@@ -185,7 +191,7 @@ class FNNs(Population):
             verbose             = 1,
             file_name           = file_name
             )
-        return fnn.fitness
+        return fitness
 
     def train_fnn(self, fnn, max_epochs = 1000000, patience = 5,
         min_change = 1e-4, max_training_time = None, verbose = False,
@@ -226,16 +232,16 @@ class FNNs(Population):
 
         X_train, Y_train, X_val, Y_val = self.train_val_sets
 
-        if self.number_of_features == 'infer':
-            self.number_of_features = X_val.shape[1]
-        if self.number_of_labels == 'infer':
-            self.number_of_labels = Y_val.shape[1]
+        if self.nm_features == 'infer':
+            self.nm_features = X_val.shape[1]
+        if self.nm_labels == 'infer':
+            self.nm_labels = Y_val.shape[1]
 
-        inputs = Input(shape = (self.number_of_features,))
+        inputs = Input(shape = (self.nm_features,))
         x = Dropout(fnn.input_dropout)(inputs)
 
         if self.uniform_layers:
-            for _ in range(fnn.number_of_hidden_layers):
+            for _ in range(fnn.nm_hidden_layers):
                 x = Dense(fnn.neurons, activation = fnn.hidden_activation,
                     kernel_initializer = fnn.initializer)(x)
                 x = Dropout(fnn.dropout)(x)
@@ -252,7 +258,7 @@ class FNNs(Population):
                 except:
                     break
 
-        outputs = Dense(self.number_of_labels,
+        outputs = Dense(self.nm_labels,
             activation = self.output_activation,
             kernel_initializer = fnn.initializer)(x)
 
@@ -271,13 +277,12 @@ class FNNs(Population):
             seconds = max_training_time
             )
 
-        tqdm_callback = TQDMCallback()
-
         callbacks = [early_stopping]
         if verbose:
+            tqdm_callback = TQDMCallback(show_outer = False)
             callbacks.append(tqdm_callback)
 
-        H = nn.fit(
+        nn.fit(
             X_train,
             Y_train,
             batch_size = fnn.batch_size,
@@ -290,7 +295,7 @@ class FNNs(Population):
         if file_name:
             nn.save("{}.h5".format(file_name))
 
-        if self.number_of_labels > 1:
+        if self.nm_labels > 1:
             average = 'micro'
         else:
             average = None
@@ -320,8 +325,9 @@ class FNNs(Population):
         # Clear tensorflow session to avoid memory leak
         K.clear_session()
         
-        fnn.fitness = fitness
-
+        if verbose:
+            print("")
+        
         return fitness
 
 
