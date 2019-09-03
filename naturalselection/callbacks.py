@@ -164,6 +164,7 @@ class EarlierStopping(EarlyStopping):
             if self.verbose:
                 print('Stopping after {} seconds.'\
                     .format(self.seconds))
+        super().on_batch_end(batch, logs)
 
     def on_epoch_end(self, epoch, logs = {}):
         if self.seconds and time.time()-self.start_time > self.seconds:
@@ -174,6 +175,6 @@ class EarlierStopping(EarlyStopping):
                 print('Stopping after {} seconds.'.\
                     format(self.seconds))
 
-        # This restores best weights if we're beyond the first epoch
+        # Call earlystopping if we're beyond the first epoch
         if logs.get(self.monitor):
             super().on_epoch_end(epoch, logs)

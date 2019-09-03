@@ -4,7 +4,6 @@ from functools import partial
 from multiprocessing import cpu_count, current_process
 from naturalselection.core import Genus, Population, Organism
 import logging
-from memory_profiler import profile
 
 class FNN(Genus):
     ''' Feedforward fully connected neural network genus.
@@ -21,10 +20,10 @@ class FNN(Genus):
         (iterable) initializer: keras initializers
         '''
     def __init__(self,
-        max_nm_hidden_layers = 3,
+        max_nm_hidden_layers = 5,
         uniform_layers = False,
-        input_dropout = np.arange(0, 0.6, 0.25),
-        hidden_dropout = np.arange(0, 0.6, 0.25),
+        input_dropout = np.arange(0, 0.6, 0.1),
+        hidden_dropout = np.arange(0, 0.6, 0.1),
         neurons = np.array([2 ** n for n in range(4, 11)]),
         optimizer = np.array(['sgd', 'rmsprop', 'adagrad', 'adadelta',
                               'adamax', 'adam', 'nadam']),
@@ -74,10 +73,10 @@ class FNNs(Population):
         patience = 5, 
         min_change = 1e-4,
         max_training_time = None, 
-        max_nm_hidden_layers = 3,
+        max_nm_hidden_layers = 5,
         uniform_layers = False,
-        input_dropout = np.arange(0, 0.6, 0.25),
-        hidden_dropout = np.arange(0, 0.6, 0.25),
+        input_dropout = np.arange(0, 0.6, 0.1),
+        hidden_dropout = np.arange(0, 0.6, 0.1),
         neurons = np.array([2 ** n for n in range(4, 11)]),
         optimizer = np.array(['sgd', 'rmsprop', 'adagrad', 'adadelta',
                               'adamax', 'adam', 'nadam']),
@@ -216,6 +215,7 @@ class FNNs(Population):
         from tensorflow.keras.layers import Input, Dense, Dropout
         from tensorflow.keras import backend as K
         from tensorflow.python.util import deprecation
+        from tensorflow import set_random_seed
         
         from sklearn.metrics import accuracy_score
         from sklearn.metrics import f1_score, precision_score, recall_score
@@ -229,6 +229,10 @@ class FNNs(Population):
         # Suppress tensorflow warnings
         deprecation._PRINT_DEPRECATION_WARNINGS = False
         os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+
+        # Set random seeds for reproducibility
+        np.random.seed(0)
+        set_random_seed(0)
 
         X_train, Y_train, X_val, Y_val = self.train_val_sets
 

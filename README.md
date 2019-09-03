@@ -19,11 +19,12 @@ Here is a toy example optimising a pair of numbers with respect to division.
 >>>
 >>> Pair = ns.Genus(x = range(1, 10000), y = range(1, 10000))
 >>>
->>> def division(number):
-...   return number.x / number.y
+>>> pairs = ns.Population(
+...   genus = Pair, 
+...   size = 100, 
+...   fitness_fn = lambda n: n.x/n.y
+...   )
 ...
->>> pairs = ns.Population(genus = Pair, size = 100, fitness_fn = division)
->>>
 >>> history = pairs.evolve(generations = 100)
 Evolving population: 100%|██████████████████| 100/100 [00:05<00:00,  19.59it/s]
 >>>
@@ -38,7 +39,7 @@ Evolving population: 100%|██████████████████
 
 We can also easily solve the classical [OneMax problem](http://tracer.lcc.uma.es/problems/onemax/onemax.html), which is about finding the bit-string of a given length with all 1's. Here we set `goal = 100` in the `evolve` function to allow for early stopping if we reach our goal before the maximum number of generations, which we here set to 5,000. Note that it only takes nine seconds, however.
 
-```python
+```python3
 >>> import naturalselection as ns
 >>>
 >>> BitString = ns.Genus(**{f'x{n}' : (0,1) for n in range(100)})
@@ -51,7 +52,7 @@ We can also easily solve the classical [OneMax problem](http://tracer.lcc.uma.es
 ...   size = 2,
 ...   fitness_fn = sum_bits
 ...   )
->>> 
+... 
 >>> history = bitstrings.evolve(generations = 500, goal = 100)
 Evolving population: 36%|██████           | 1805/5000 [00:09<00:16, 194.43it/s]
 >>> 
@@ -61,14 +62,17 @@ Evolving population: 36%|██████           | 1805/5000 [00:09<00:16, 
 ![Plot showing fitness value over 4500 generations, converging steadily to the optimal filled out sequence of ones.](https://filedn.com/lRBwPhPxgV74tO0rDoe8SpH/naturalselection_data/onemax_example.png)
 
 
-Lastly, here is an example of finding a fully connected feedforward neural network to model [MNIST](https://en.wikipedia.org/wiki/MNIST_database). Note that this requires roughly 1GB memory available per CPU core (which usually is 4). If you don't have this available then set the `workers` parameter in the `evolve` call to something around 2 or 3, or set `multiprocessing = False` to turn parallelism off completely (if you're the lucky owner of a GPU then you need to set `multiprocessing = False` as well).
+Lastly, here is an example of finding a fully connected feedforward neural network to model [MNIST](https://en.wikipedia.org/wiki/MNIST_database).
 
-```python
+Note that the models are trained in parallel, so it is loading in a copy of the MNIST data set for every CPU core in your computer, each of which takes up ~750MB of memory. If this causes you to run into memory trouble then you can set the `workers` parameter to something small like 2, or set `multiprocessing = False` to turn parallelism off completely. I've marked these in the code below.
+
+```python3
 >>> import naturalselection as ns
 >>>
->>> def mnist_preprocessing(X):
+>>> def preprocessing(X):
 ...   ''' Basic normalisation and scaling preprocessing. '''
-...   X = X.reshape((-1, 784))
+...   import numpy as np
+...   X = X.reshape((-1, np.prod(X.shape[1:])))
 ...   X = (X - X.min()) / (X.max() - X.min())
 ...   X -= X.mean(axis = 0)
 ...   return X
@@ -84,24 +88,26 @@ Lastly, here is an example of finding a fully connected feedforward neural netwo
 ...   return (X_train, Y_train, X_val, Y_val)
 ...
 >>> fnns = ns.FNNs(
-... size = 50,
+... size = 30,
 ... train_val_sets = mnist_train_val_sets(),
 ... loss_fn = 'categorical_crossentropy',
 ... score = 'accuracy',
 ... output_activation = 'softmax',
-... max_training_time = 60
+... max_epochs = 5,
+... max_training_time = 90,
+... # workers = 2, # If you want to reduce parallelism
+... # multiprocessing = False # If you want to disable parallelism
 ... )
 ...
 >>> history = fnns.evolve(generations = 20)
-Evolving population: 100%|██████████████████| 20/20 [4:28:35<00:00, 776.70s/it]
-Computing fitness for gen 19: 100%|████████████| 46/46 [13:22<00:00, 17.44s/it]
+Evolving population: 100%|██████████████████| 20/20 [1:49:58<00:00, 177.22s/it]
+Computing fitness: 100%|█████████████████████████| 8/8 [03:08<00:00, 22.74s/it]
 >>> 
 >>> history.fittest
-{'genome': {'optimizer': 'adam', 'hidden_activation': 'elu',
-'batch_size': 128, 'initializer': 'glorot_uniform', 'input_dropout': 0.1,
-'neurons0': 128, 'dropout0': 0.0, 'neurons1': 64, 'dropout1': 0.0,
-'neurons2': 1024, 'dropout2': 0.1, 'neurons3': 32, 'dropout3': 0.4,
-'neurons4': 256, 'dropout4': 0.1}, 'fitness': 0.973}
+{'genome': {'optimizer': 'adagrad', 'hidden_activation': 'relu',
+'batch_size': 64, 'initializer': 'lecun_normal', 'input_dropout': 0.3,
+'neurons0': 512, 'dropout0': 0.2, 'neurons1': 128, 'dropout1': 0.0,
+'neurons2': 0, 'dropout2': 0.4, 'neurons3': 128, 'dropout3': 0.3, 'neurons4': 0, 'dropout4': 0.3}, 'fitness': 0.9703}
 >>> 
 >>> history.plot(
 ...   title = "Validation accuracy by generation",
@@ -111,17 +117,20 @@ Computing fitness for gen 19: 100%|████████████| 46/46 [
 
 ![Plot showing fitness value (which is accuracy in this case) over 20 generations, converging to roughly 97%.](https://filedn.com/lRBwPhPxgV74tO0rDoe8SpH/naturalselection_data/mnist_example.png)
 
+The output can be read as the network having neurons [512, 128, 128] with dropouts [30%, 20%, 0%, 30%], along with the adagrad optimizer, relu activation, lecun_normal initializer and a batch size of 64.
+
 We can then train the best performing model and save it locally:
 
-```python
+```python3
 >>> # Training the best model and saving it to mnist_model.h5
 >>> best_score = fnns.train_best(file_name = 'mnist_model')
-Epoch: 0 - loss: 0.277, val_loss: 0.179: 100%|██████████| 60000/60000 [00:31<00:00, 244.79it/s]
+Epoch: 0 - loss: 0.384, val_loss: 0.141: 100%|██████████| 60000/60000 [00:09<00:00, 2812.43it/s]
 (...)
+Epoch: 49 - loss: 0.060, val_loss: 0.056: 100%|█████████| 60000/60000 [00:09<00:00, 1353.92it/s]
+>>>
 >>> best_score
-0.9793
+0.9853
 ```
-
 
 ## Algorithmic details
 
@@ -140,40 +149,42 @@ We now describe the individual steps in this particular implementation in more d
 
 ### Step 1: Constructing the initial population
 
-The population is a uniformly random sample of the possible genome values as dictated by the genus, which is run when a new `Population` object is created. Alternatively, you may set the `initial_genome` to a whatever genome you would like, which will make a completely homogenous population consisting only of organisms of this genome (mutations will create some diversity in each generation).
+The population is a uniformly random sample of the possible genome values as dictated by the genus, which is run when a new `Population` object is created. Alternatively, you may set the `initial_genome` to a whatever genome you would like, which will create a population consisting of organisms similar to this genome (the result of starting with a population all equal to the organism and then mutating 80% of them).
 
-```python
+```python3
 >>> pairs = ns.Population(
 ...   genus = Pair,
 ...   size = 100,
-...   fitness_fn = division,
-...   initial_genome = {'x' : 9750, 'y' : 15}
+...   fitness_fn = lambda n: n.x/n.y,
+...   initial_genome = {'x': 9750, 'y': 15}
 ...   )
-Evolving population: 100%|███████████████████| 100/100 [00:09<00:00,  5.28it/s]
+...
+>>> history = pairs.evolve(generations = 100)
+Evolving population: 100%|██████████████████| 100/100 [00:05<00:00,  19.47it/s]
 >>> 
->>> self.fittest
-{'genome' : {'x' : 9846, 'y' : 1}, 'fitness' : 9846.0}
+>>> history.fittest
+{'genome' : {'x' : 9989, 'y' : 3}, 'fitness' : 3329.66666666665}
 ```
 
 ### Step 2: Compute fitness values
 
-This happens in the `get_fitness` function which is called by the `evolve` function. These computations will by default be computed in parallel for each CPU core, so in the MNIST example above this will require 4-5gb RAM. Alternatively, the number of parallel computations can be explicitly set by setting `workers` to a small value, or disable the parallel computations completely by setting `multiprocessing = False`.
+This happens in the `update_fitness` function which is called by the `evolve` function. These computations will by default be computed in parallel when dealing with neural networks, and serialised otherwise.
 
 ### Steps 3 & 4: Selecting elite pool and breeding pool
 
-These two pools are selected in exactly the same way, only differing in the amount of organisms in each pool, where the default `elitism_rate` is 5% and `breeding_rate` is 80%. In the pool selection it chooses the population based on the distribution with density function the fitness value divided by the sum of all fitness values of the population. This means that the higher fitness score an organism has, the more likely it is for it to be chosen to be a part of the pool. The precise implementation of this follows the algorithm specified on this [Wikipedia page](https://en.wikipedia.org/wiki/Selection_(genetic_algorithm)).
+These two pools are selected in exactly the same way, using the `sample` function. They only differ in the amount of organisms sampled, where the default `elitism_rate` is 5% and `breeding_rate` is 80%. In the pool selection it chooses the population based on the distribution with density function the fitness value divided by the sum of all fitness values of the population. This means that the higher fitness score an organism has, the more likely it is for it to be chosen to be a part of the pool. The precise implementation of this follows the algorithm specified on this [Wikipedia page](https://en.wikipedia.org/wiki/Selection_(genetic_algorithm)).
 
 ### Step 5: Breeding
 
-In this implementation the parent organisms are chosen uniformly at random, and when determining the value of the child's genome, every gene is a uniformly random choice between its parents' values for that particular gene.
+In this implementation the parent organisms are chosen uniformly at random. When determining the value of the child's genome we apply the "single-point crossover" method, where we choose an index uniformly at random among the attributes, and the child will then inherit all attributes to the left of this index from one parent and the attributes to the right of this index from the other parent.See more on [this Wikipedia page](https://en.wikipedia.org/wiki/Crossover_(genetic_algorithm)).
 
 ### Step 6: Selection of mutation pool
 
-The mutation pool is chosen uniformly at random in contrast with the other two pools, as otherwise we would suddenly be more likely to "mutate away" many of the good genes of our fittest organisms. The default `mutation_rate` is 20%.
+The mutation pool is chosen uniformly at random in contrast to the other two pools, as otherwise we would suddenly be more likely to "mutate away" many of the good genes of our fittest organisms. The default `mutation_rate` is 20%.
 
 ### Step 7: Mutation
 
-This implementation is roughly the [bit string mutation](https://en.wikipedia.org/wiki/Mutation_(genetic_algorithm)), where every gene of the organism has a 1/n chance of being uniformly randomly replaced by another gene, with n being the number of genes in the organism's genome. This means that, on average, mutation causes one gene to be altered.
+This implementation is roughly the [bit string mutation](https://en.wikipedia.org/wiki/Mutation_(genetic_algorithm)), where every gene of the organism has a 1/n chance of being uniformly randomly replaced by another gene, with n being the number of genes in the organism's genome. This means that, on average, mutation causes one gene to be altered. The amount of genes altered in a mutation can be modified by changing thè `mutation_factor` parameter, which by default is the above 1/n.
 
 
 ## Possible future extensions

@@ -18,8 +18,6 @@ import multiprocessing as mp
 # Logging
 import logging
 
-from memory_profiler import profile
-
 class Genus():
     ''' Storing information about all the possible gene combinations.
 
@@ -131,7 +129,7 @@ class Population():
     INPUT
         (Genus) genus
         (int) size: size of the population
-        (function) fitness_fn: fitness function which must be pickleable
+        (function) fitness_fn: fitness function
         (dict) initial_genome = None: start with a population similar to
                the genome, for a warm start
         (float) breeding_rate = 0.8: percentage of population to breed 
@@ -283,31 +281,31 @@ class Population():
                 if self.multiprocessing:
 
                     # Define queues to organise the parallelising
-                    todo = mp.Queue(unique_indices.size)
+                    todo = mp.Queue(unique_indices.size + self.workers)
                     done = mp.Queue(unique_indices.size)
-                    in_progress = mp.Queue(self.workers)
                     for idx in unique_indices:
                         todo.put(idx)
+                    for _ in range(self.workers):
+                        todo.put(-1)
 
-                    def worker(todo, in_progress, done):
+                    def worker(todo, done):
                         ''' Fitness computing worker. '''
+                        from queue import Empty
                         while True:
-                            if in_progress.qsize() < self.workers:
-                                try:
-                                    idx = todo.get_nowait()
-                                except:
-                                    break
-                                else:
-                                    in_progress.put(idx)
-                                    org = self.population[idx]
-                                    fitness = self.fitness_fn(org)
-                                    done.put((idx, fitness))
-                                    in_progress.get()
+                            try:
+                                idx = todo.get(timeout = 1)
+                            except Empty:
+                                continue
+                            if idx == -1:
+                                break
+                            else:
+                                org = self.population[idx]
+                                fitness = self.fitness_fn(org)
+                                done.put((idx, fitness))
 
                     # Define our processes
                     processes = [mp.Process(target = worker,
-                        args = (todo, in_progress, done))
-                        for _ in range(self.workers)]
+                        args = (todo, done)) for _ in range(self.workers)]
 
                     # Daemonise the processes, meaning they close when they
                     # they finish, and start them
@@ -343,23 +341,6 @@ class Population():
                 if self.progress_bars >= 2:
                     idx_fits.close()
 
-
-                # Add a progress bar
-                #if self.progress_bars >= 2:
-                #    idx_fits = tqdm(idx_fits, total = unique_indices.size)
-                #    idx_fits.set_description("Computing fitness")
-
-                ## Compute the fitness values by iterating
-                #for (idx, new_fitness) in idx_fits:
-                #    self.population[idx].fitness = new_fitness
-
-                #if self.progress_bars >= 2:
-                #    idx_fits.close()
-
-                # Close the multiprocessing pool
-                #if self.multiprocessing:
-                #    pool.close()
-                #    pool.join()
 
         # Copy out the fitness values to the other organisms with same genome
         for (i, org) in enumerate(self.population):

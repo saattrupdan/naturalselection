@@ -1,9 +1,6 @@
 import naturalselection as ns
 
-# Length of number lists
-N = 100
-
-BitString = ns.Genus(**{f'x{n}' : (0,1) for n in range(N)})
+BitString = ns.Genus(**{f'x{n}' : (0,1) for n in range(100)})
 
 def sum_bits(bitstring):
   return sum(bitstring.get_genome().values())
