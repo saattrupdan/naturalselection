@@ -46,7 +46,7 @@ We can also easily solve the classical [OneMax problem](http://tracer.lcc.uma.es
 >>>
 >>> def sum_bits(bitstring):
 ...   return sum(bitstring.get_genome().values())
->>>
+...
 >>> bitstrings = ns.Population(
 ...   genus = BitString,
 ...   size = 2,
