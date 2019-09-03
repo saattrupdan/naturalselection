@@ -107,7 +107,8 @@ Computing fitness: 100%|██████████████████�
 {'genome': {'optimizer': 'adagrad', 'hidden_activation': 'relu',
 'batch_size': 64, 'initializer': 'lecun_normal', 'input_dropout': 0.3,
 'neurons0': 512, 'dropout0': 0.2, 'neurons1': 128, 'dropout1': 0.0,
-'neurons2': 0, 'dropout2': 0.4, 'neurons3': 128, 'dropout3': 0.3, 'neurons4': 0, 'dropout4': 0.3}, 'fitness': 0.9703}
+'neurons2': 0, 'dropout2': 0.4, 'neurons3': 128, 'dropout3': 0.3,
+'neurons4': 0, 'dropout4': 0.3}, 'fitness': 0.9703}
 >>> 
 >>> history.plot(
 ...   title = "Validation accuracy by generation",
@@ -115,7 +116,7 @@ Computing fitness: 100%|██████████████████�
 ...   )
 ```
 
-![Plot showing fitness value (which is accuracy in this case) over 20 generations, converging to roughly 97%.](https://filedn.com/lRBwPhPxgV74tO0rDoe8SpH/naturalselection_data/mnist_example.png)
+![Plot showing fitness value (which is accuracy in this case) over 20 generations, converging to roughly 97%.](https://filedn.com/lRBwPhPxgV74tO0rDoe8SpH/naturalselection_data/nn_example.png)
 
 The output can be read as the network having neurons [512, 128, 128] with dropouts [30%, 20%, 0%, 30%], along with the adagrad optimizer, relu activation, lecun_normal initializer and a batch size of 64.
 
