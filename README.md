@@ -1,6 +1,6 @@
 # NaturalSelection <img src="https://filedn.com/lRBwPhPxgV74tO0rDoe8SpH/naturalselection_data/logo.png" width="50" height="50" alt="Logo of green flower"/>
 
-An all-purpose pythonic genetic algorithm, which also has built-in hyperparameter tuning support for neural networks.
+An all-purpose pythonic genetic algorithm, which includes built-in hyperparameter tuning support for neural networks.
 
 
 ## Installation
@@ -49,7 +49,7 @@ We can also easily solve the classical [OneMax problem](http://tracer.lcc.uma.es
 ...
 >>> bitstrings = ns.Population(
 ...   genus = BitString,
-...   size = 2,
+...   size = 5,
 ...   fitness_fn = sum_bits
 ...   )
 ... 
@@ -125,9 +125,9 @@ We can then train the best performing model and save it locally:
 ```python3
 >>> # Training the best model and saving it to mnist_model.h5
 >>> best_score = fnns.train_best(file_name = 'mnist_model')
-Epoch: 0 - loss: 0.384, val_loss: 0.141: 100%|██████████| 60000/60000 [00:09<00:00, 2812.43it/s]
+Epoch: 0 - loss: 0.384, val_loss: 0.141: 100%|███████| 60000/60000 [00:09<00:00, 2812.43it/s]
 (...)
-Epoch: 49 - loss: 0.060, val_loss: 0.056: 100%|█████████| 60000/60000 [00:09<00:00, 1353.92it/s]
+Epoch: 49 - loss: 0.060, val_loss: 0.056: 100%|██████| 60000/60000 [00:09<00:00, 1353.92it/s]
 >>>
 >>> best_score
 0.9853
@@ -141,7 +141,7 @@ The algorithm follows the standard blueprint for a genetic algorithm as e.g. des
 2. Fitness values for all organisms in the population are computed
 3. A subset of the population (the *elite pool*) is selected
 4. A subset of the population (the *breeding pool*) is selected
-5. Pairs from the breeding pool are chosen, who will breed to create a new "child" organism with genome a combination of the "parent" organisms. Continue breeding until the the children and the elites constitute a population of the same size as the original
+5. Pairs from the breeding pool are chosen, who will breed to create a new "child" organism with genome a combination of the "parent" organisms. Continue breeding until the children and the elites constitute a population of the same size as the original
 6. A subset of the children (the *mutation pool*) is selected
 7. Every child in the mutation pool is mutated, meaning that they will have their genome altered in some way
 8. Go back to step 2
@@ -150,7 +150,7 @@ We now describe the individual steps in this particular implementation in more d
 
 ### Step 1: Constructing the initial population
 
-The population is a uniformly random sample of the possible genome values as dictated by the genus, which is run when a new `Population` object is created. Alternatively, you may set the `initial_genome` to a whatever genome you would like, which will create a population consisting of organisms similar to this genome (the result of starting with a population all equal to the organism and then mutating 80% of them).
+The population is a uniformly random sample of the possible genome values as dictated by the genus, which is run when a new `Population` object is created. Alternatively, you may set the `initial_genome` to whatever genome you would like, which will create a population consisting of organisms similar to this genome (the result of starting with a population all equal to the organism and then mutating 80% of them).
 
 ```python3
 >>> pairs = ns.Population(
@@ -169,15 +169,15 @@ Evolving population: 100%|██████████████████
 
 ### Step 2: Compute fitness values
 
-This happens in the `update_fitness` function which is called by the `evolve` function. These computations will by default be computed in parallel when dealing with neural networks, and serialised otherwise.
+This happens in the `update_fitness` function which is called by the `evolve` function. These computations will by default be computed in parallel when dealing with neural networks and serialised otherwise, as the benefits are only reaped when fitness computations take up a significant part of the algorithm (in the examples above not concerning neural networks we would actually slow down the algorithm non-trivially by introducing parallelism).
 
 ### Steps 3 & 4: Selecting elite pool and breeding pool
 
-These two pools are selected in exactly the same way, using the `sample` function. They only differ in the amount of organisms sampled, where the default `elitism_rate` is 5% and `breeding_rate` is 80%. In the pool selection it chooses the population based on the distribution with density function the fitness value divided by the sum of all fitness values of the population. This means that the higher fitness score an organism has, the more likely it is for it to be chosen to be a part of the pool. The precise implementation of this follows the algorithm specified on this [Wikipedia page](https://en.wikipedia.org/wiki/Selection_(genetic_algorithm)).
+These two pools are selected in exactly the same way, using the `sample` function. They only differ in the amount of organisms sampled, where the default `elitism_rate` is 5% and `breeding_rate` is 80%. In the pool selection it chooses the population based on the distribution with density function the fitness value divided by the sum of all fitness values of the population. This means that the higher fitness score an organism has, the more likely it is for it to be chosen to be a part of the pool. The precise implementation of this is based on the algorithm specified on this [Wikipedia page](https://en.wikipedia.org/wiki/Selection_(genetic_algorithm)).
 
 ### Step 5: Breeding
 
-In this implementation the parent organisms are chosen uniformly at random. When determining the value of the child's genome we apply the "single-point crossover" method, where we choose an index uniformly at random among the attributes, and the child will then inherit all attributes to the left of this index from one parent and the attributes to the right of this index from the other parent.See more on [this Wikipedia page](https://en.wikipedia.org/wiki/Crossover_(genetic_algorithm)).
+In this implementation the parent organisms are chosen uniformly at random from the breeding pool. When determining the value of the child's genome we apply the "single-point crossover" method, where we choose an index uniformly at random among the attributes, and the child will then inherit all attributes to the left of this index from one parent and the attributes to the right of this index from the other parent.See more on [this Wikipedia page](https://en.wikipedia.org/wiki/Crossover_(genetic_algorithm)).
 
 ### Step 6: Selection of mutation pool
 
