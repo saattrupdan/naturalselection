@@ -1,11 +1,14 @@
 import numpy as np
 import os
 from functools import partial 
-from multiprocessing import cpu_count, current_process
-from naturalselection.core import Genus, Population, Organism
 import logging
 
-class FNN(Genus):
+# Used to set default value for workers
+from multiprocessing import cpu_count
+
+import naturalselection as ns
+
+class FNN(ns.Genus):
     ''' Feedforward fully connected neural network genus.
 
     INPUT:
@@ -53,7 +56,7 @@ class FNN(Genus):
                 layer_info["dropout{}".format(layer_idx)] = dropout
             self.__dict__.update(layer_info)
 
-class FNNs(Population):
+class FNNs(ns.Population):
     def __init__(self, 
         train_val_sets,
         size = 50, 
@@ -64,13 +67,14 @@ class FNNs(Population):
         elitism_rate = 0.05,
         multiprocessing = True,
         workers = cpu_count(),
+        progress_bars = 3,
         loss_fn = 'binary_crossentropy',
         nm_features = 'infer', 
         nm_labels = 'infer',
         score = 'accuracy', 
         output_activation = 'sigmoid',
         max_epochs = 1000000, 
-        patience = 5, 
+        patience = 10, 
         min_change = 1e-4,
         max_training_time = None, 
         max_nm_hidden_layers = 5,
@@ -97,6 +101,7 @@ class FNNs(Population):
         self.elitism_rate         = elitism_rate
         self.multiprocessing      = multiprocessing
         self.workers              = workers
+        self.progress_bars        = progress_bars
         self.loss_fn              = loss_fn
         self.nm_features          = nm_features
         self.nm_labels            = nm_labels
@@ -132,8 +137,6 @@ class FNNs(Population):
         # Hard coded values for neural networks
         self.allow_repeats = False
         self.memory = 'inf'
-        self.progress_bars = 2
-        self.chunksize = np.ceil(self.size / self.workers).astype(int)
         
         self.genus = FNN(
             max_nm_hidden_layers = self.max_nm_hidden_layers,
@@ -154,7 +157,7 @@ class FNNs(Population):
             min_change          = self.min_change,
             max_training_time   = self.max_training_time,
             verbose             = 0,
-            file_name           = None
+            file_name           = None,
             )
 
         # If user has supplied an initial genome then construct a population
@@ -162,8 +165,10 @@ class FNNs(Population):
         if initial_genome:
 
             # Create a population of organisms all with the initial genome
-            self.population = np.array(
-                [Organism(self.genus, **initial_genome) for _ in range(size)])
+            self.population = np.array([
+                ns.Organism(self.genus, **initial_genome)
+                for _ in range(size)
+                ])
 
             # Mutate 80% of the population
             rnd = np.random.random(self.population.shape)
@@ -178,7 +183,7 @@ class FNNs(Population):
         self.fittest = np.random.choice(self.population)
 
     def train_best(self, max_epochs = 1000000, min_change = 1e-4,
-        patience = 5, max_training_time = None, file_name = None):
+        patience = 10, max_training_time = None, file_name = None):
 
         best_fnn = self.fittest        
         fitness = self.train_fnn(
@@ -192,9 +197,9 @@ class FNNs(Population):
             )
         return fitness
 
-    def train_fnn(self, fnn, max_epochs = 1000000, patience = 5,
+    def train_fnn(self, fnn, max_epochs = 1000000, patience = 10,
         min_change = 1e-4, max_training_time = None, verbose = False,
-        file_name = None):
+        file_name = None, worker_idx = None):
         ''' Train a feedforward neural network and output the score.
         
         INPUT
@@ -221,7 +226,7 @@ class FNNs(Population):
         from sklearn.metrics import f1_score, precision_score, recall_score
 
         # Custom callbacks
-        from .callbacks import TQDMCallback, EarlierStopping
+        from naturalselection.callbacks import TQDMCallback, EarlierStopping
 
         # Used when building network
         from itertools import count
@@ -268,12 +273,18 @@ class FNNs(Population):
 
         nn = Model(inputs = inputs, outputs = outputs)
 
+        if self.score == 'accuracy':
+            metrics = ['accuracy']        
+        else:
+            metrics = []
+
         nn.compile(
             loss = self.loss_fn,
             optimizer = fnn.optimizer,
+            metrics = metrics
             )
 
-        early_stopping = EarlierStopping(
+        earlier_stopping = EarlierStopping(
             monitor = 'val_loss',
             patience = patience,
             min_delta = min_change,
@@ -281,9 +292,19 @@ class FNNs(Population):
             seconds = max_training_time
             )
 
-        callbacks = [early_stopping]
-        if verbose:
-            tqdm_callback = TQDMCallback(show_outer = False)
+        callbacks = [earlier_stopping]
+        if self.progress_bars >= 3:
+            if worker_idx:
+                tqdm_callback = TQDMCallback(
+                    show_outer = False, 
+                    position = worker_idx + 1,
+                    leave_inner = False
+                    )
+            else:
+                tqdm_callback = TQDMCallback(
+                    show_outer = False, 
+                    position = 2
+                    )
             callbacks.append(tqdm_callback)
 
         nn.fit(
@@ -304,24 +325,20 @@ class FNNs(Population):
         else:
             average = None
 
-        Y_hat = nn.predict(X_val, batch_size = 32)
+        Y_hat = nn.predict(X_val, batch_size = 128)
         if self.score == 'accuracy':
-            Y_hat = np.greater(Y_hat, 0.5)
-            fitness = accuracy_score(Y_val, Y_hat)
+            fitness = nn.evaluate(X_val, Y_val, verbose = 0)[1]
         elif self.score == 'f1':
             Y_hat = np.greater(Y_hat, 0.5)
-            fitness = f1_score(Y_val, Y_hat, 
-                average = average)
+            fitness = f1_score(Y_val, Y_hat, average = average)
         elif self.score == 'precision':
             Y_hat = np.greater(Y_hat, 0.5)
-            fitness = precision_score(Y_val, Y_hat, 
-                average = average)
+            fitness = precision_score(Y_val, Y_hat, average = average)
         elif self.score == 'recall':
             Y_hat = np.greater(Y_hat, 0.5)
-            fitness = recall_score(Y_val, Y_hat, 
-                average = average)
+            fitness = recall_score(Y_val, Y_hat, average = average)
         elif self.score == 'loss':
-            fitness = np.divide(1, nn.evaluate(X_val, Y_val))
+            fitness = np.divide(1, nn.evaluate(X_val, Y_val, verbose = 0))
         else:
             # Custom scoring function
             fitness = self.score(Y_val, Y_hat)

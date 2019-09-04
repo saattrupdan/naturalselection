@@ -19,6 +19,7 @@ class TQDMCallback(Callback):
         show_inner = True,
         show_outer = True,
         output_file = None,
+        position = None,
         initial = 0):
 
         self.outer_description          = outer_description
@@ -37,14 +38,16 @@ class TQDMCallback(Callback):
         self.running_logs               = None
         self.inner_count                = None
         self.initial                    = initial
+        self.position                   = position
 
     def build_tqdm(self, desc, total, leave, initial = 0):
         """
         Extension point. Override to provide custom options to tqdm
         initializer.
         """
-        return tqdm(desc = desc, total = total, leave = leave, 
-            file = self.output_file, initial = initial)
+        return tqdm(desc = desc, total = total, leave = leave,
+            file = self.output_file, initial = initial,
+            position = self.position)
 
     def build_tqdm_outer(self, desc, total):
         """

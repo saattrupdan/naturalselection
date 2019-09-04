@@ -4,6 +4,7 @@ def preprocessing(X):
     ''' Basic normalisation and scaling preprocessing. '''
     import numpy as np
     X = X.reshape((-1, np.prod(X.shape[1:])))
+    X = X.astype('float32')
     X = (X - X.min()) / (X.max() - X.min())
     X -= X.mean(axis = 0)
     return X
@@ -23,20 +24,20 @@ def cifar10_train_val_sets():
     from tensorflow.keras.utils import to_categorical
     from tensorflow.keras.datasets import cifar10
     (X_train, Y_train), (X_val, Y_val) = cifar10.load_data()
-    X_train = cifar10_preprocessing(X_train)
+    X_train = preprocessing(X_train)
     Y_train = to_categorical(Y_train)
-    X_val = cifar10_preprocessing(X_val)
+    X_val = preprocessing(X_val)
     Y_val = to_categorical(Y_val)
     return (X_train, Y_train, X_val, Y_val)
 
 fnns = ns.FNNs(
     size = 30,
-    train_val_sets = mnist_train_val_sets(),
+    train_val_sets = cifar10_train_val_sets(),
     loss_fn = 'categorical_crossentropy',
     score = 'accuracy',
     output_activation = 'softmax',
-    max_training_time = 90,
-    max_epochs = 5
+    max_training_time = 180,
+    max_epochs = 2,
     )
 
 history = fnns.evolve(generations = 20)

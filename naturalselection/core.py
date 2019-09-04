@@ -2,6 +2,7 @@ import numpy as np
 import sys
 import os
 from functools import reduce, partial
+import logging
 
 # Suppressing warnings
 import warnings
@@ -9,14 +10,12 @@ import warnings
 # Plots
 import matplotlib.pyplot as plt
 
-# Progress bar
+# Progress bars
 from tqdm import tqdm, trange
 
 # Parallelising fitness
+from inspect import getfullargspec
 import multiprocessing as mp
-
-# Logging
-import logging
 
 class Genus():
     ''' Storing information about all the possible gene combinations.
@@ -145,9 +144,6 @@ class Population():
                computed in parallel
         (int) workers = mp.cpu_count(): how many workers to use if
               multiprocessing is True
-        (int) chunksize = 1: (only relevant if multiprocessing is true and
-              progress_bars is at least 2) amount of fitness computations
-              that are sent to each process
         (int) progress_bars = 1: number of progress bars to show, where 1
               only shows the main evolution progress, and 2 shows both
               the evolution and the fitness computation per generation
@@ -162,12 +158,11 @@ class Population():
     def __init__(self, genus, size, fitness_fn, initial_genome = None,
         breeding_rate = 0.8, mutation_rate = 0.2, mutation_factor = 'default', 
         elitism_rate = 0.05, multiprocessing = False, workers = mp.cpu_count(),
-        chunksize = 1, progress_bars = 1, memory = 'inf', allow_repeats = True,
+        progress_bars = 1, memory = 'inf', allow_repeats = True,
         verbose = 0):
 
         self.genus = genus
         self.size = size
-        self.fitness_fn = fitness_fn
         self.initial_genome = initial_genome
         self.breeding_rate = breeding_rate
         self.mutation_rate = mutation_rate
@@ -175,11 +170,17 @@ class Population():
         self.elitism_rate = elitism_rate
         self.multiprocessing = multiprocessing
         self.workers = workers
-        self.chunksize = chunksize
         self.progress_bars = progress_bars
         self.memory = memory
         self.allow_repeats = allow_repeats
         self.verbose = verbose
+
+        if 'worker_idx' not in getfullargspec(fitness_fn).args:
+            def new_fitness_fn(*args, worker_idx = None, **kwargs):
+                return fitness_fn(*args, **kwargs)
+            self.fitness_fn = new_fitness_fn
+        else:
+            self.fitness_fn = fitness_fn
 
         logging.basicConfig(format = '%(levelname)s: %(message)s')
         self.logger = logging.getLogger()
@@ -300,7 +301,9 @@ class Population():
                                 break
                             else:
                                 org = self.population[idx]
-                                fitness = self.fitness_fn(org)
+                                worker_idx = mp.current_process()._identity[0]
+                                fitness = self.fitness_fn(org,
+                                    worker_idx = worker_idx)
                                 done.put((idx, fitness))
 
                     # Define our processes
@@ -521,7 +524,7 @@ class History():
                         memory.
     '''
 
-    def __init__(self, population, generations, memory = 20):
+    def __init__(self, population, generations, memory = 'inf'):
 
         if memory == 'inf' or memory > generations:
             self.memory = min(int(1e5), generations)
