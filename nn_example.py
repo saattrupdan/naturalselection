@@ -30,25 +30,56 @@ def cifar10_train_val_sets():
     Y_val = to_categorical(Y_val)
     return (X_train, Y_train, X_val, Y_val)
 
+
+print("\n~~~ Now evolving MNIST ~~~")
+
 fnns = ns.FNNs(
-    size = 30,
-    train_val_sets = cifar10_train_val_sets(),
+    size = 50,
+    train_val_sets = mnist_train_val_sets(),
     loss_fn = 'categorical_crossentropy',
     score = 'accuracy',
     output_activation = 'softmax',
-    max_training_time = 180,
-    max_epochs = 2,
+    max_training_time = 200,
+    max_epochs = 3,
     )
 
-history = fnns.evolve(generations = 20)
+history = fnns.evolve(generations = 10)
 print("Best overall genome:", history.fittest)
 
 history.plot(
     title = "Validation accuracy by generation",
     ylabel = "Validation accuracy",
     show_plot = False,
-    file_name = "nn_plot.png"
+    file_name = "mnist_plot.png"
     )
 
 best_score = fnns.train_best()
 print("Best score:", best_score)
+
+
+#print("\n~~~ Now evolving CIFAR-10 ~~~")
+#
+#fnns = ns.FNNs(
+#    size = 50,
+#    train_val_sets = cifar10_train_val_sets(),
+#    loss_fn = 'categorical_crossentropy',
+#    score = 'accuracy',
+#    output_activation = 'softmax',
+#    max_training_time = 300,
+#    max_epochs = 3,
+#    )
+#
+#history = fnns.evolve(generations = 10)
+#print("Best overall genome:", history.fittest)
+#
+#history.plot(
+#    title = "Validation accuracy by generation",
+#    ylabel = "Validation accuracy",
+#    show_plot = False,
+#    file_name = "cifar10_plot.png"
+#    )
+#
+#best_score = fnns.train_best()
+#print("Best score:", best_score)
+
+

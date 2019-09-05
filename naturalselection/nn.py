@@ -22,9 +22,7 @@ class FNN(ns.Genus):
         (iterable) batch_size: batch sizes
         (iterable) initializer: keras initializers
         '''
-    def __init__(self,
-        max_nm_hidden_layers = 5,
-        uniform_layers = False,
+    def __init__(self, max_nm_hidden_layers = 5, uniform_layers = False,
         input_dropout = np.arange(0, 0.6, 0.1),
         hidden_dropout = np.arange(0, 0.6, 0.1),
         neurons = np.array([2 ** n for n in range(4, 11)]),
@@ -74,7 +72,7 @@ class FNNs(ns.Population):
         score = 'accuracy', 
         output_activation = 'sigmoid',
         max_epochs = 1000000, 
-        patience = 10, 
+        patience = 3, 
         min_change = 1e-4,
         max_training_time = None, 
         max_nm_hidden_layers = 5,
@@ -156,7 +154,6 @@ class FNNs(ns.Population):
             patience            = self.patience,
             min_change          = self.min_change,
             max_training_time   = self.max_training_time,
-            verbose             = 0,
             file_name           = None,
             )
 
@@ -192,25 +189,29 @@ class FNNs(ns.Population):
             patience            = patience,
             min_change          = min_change,
             max_training_time   = max_training_time,
-            verbose             = 1,
             file_name           = file_name
             )
+        print("")
+        print("")
         return fitness
 
-    def train_fnn(self, fnn, max_epochs = 1000000, patience = 10,
-        min_change = 1e-4, max_training_time = None, verbose = False,
-        file_name = None, worker_idx = None):
+    def train_fnn(self, fnn, max_epochs = 1000000, patience = 3,
+        min_change = 1e-4, max_training_time = None, file_name = None, 
+        worker_idx = None):
         ''' Train a feedforward neural network and output the score.
         
         INPUT
             (FNN) fnn: a feedforward neural network genus
-            (int) max_epochs: maximum number of epochs to train for
-            (int) patience: number of epochs with no progress above min_change
-            (float) min_change: everything below this number won't count as a
-                    change in the score
-            (int) max_training_time: maximum number of seconds to train for,
-                  also training the final epoch after the time has run out
-            (int) verbose: verbosity mode
+            (int) max_epochs = 1000000: maximum number of epochs to train for
+            (int) patience = 3: number of epochs allowed with no progress
+                  above min_change
+            (float) min_change = 1e-4: everything below this number will
+                    not count as a change in the score
+            (int) max_training_time = None: maximum number of seconds to
+                  train for, also training the final epoch after the time
+                  has run out
+            (int) worker_idx = None: what worker is currently training this
+                  network, with enumeration starting from 1
 
         OUTPUT
             (float) the score of the neural network
@@ -297,13 +298,13 @@ class FNNs(ns.Population):
             if worker_idx:
                 tqdm_callback = TQDMCallback(
                     show_outer = False, 
-                    position = worker_idx + 1,
+                    inner_position = (worker_idx % self.workers) + 2,
                     leave_inner = False
                     )
             else:
                 tqdm_callback = TQDMCallback(
                     show_outer = False, 
-                    position = 2
+                    inner_position = 0
                     )
             callbacks.append(tqdm_callback)
 
@@ -345,9 +346,6 @@ class FNNs(ns.Population):
         
         # Clear tensorflow session to avoid memory leak
         K.clear_session()
-        
-        if verbose:
-            print("")
         
         return fitness
 

@@ -19,7 +19,8 @@ class TQDMCallback(Callback):
         show_inner = True,
         show_outer = True,
         output_file = None,
-        position = None,
+        outer_position = None,
+        inner_position = None,
         initial = 0):
 
         self.outer_description          = outer_description
@@ -38,16 +39,17 @@ class TQDMCallback(Callback):
         self.running_logs               = None
         self.inner_count                = None
         self.initial                    = initial
-        self.position                   = position
+        self.outer_position             = outer_position
+        self.inner_position             = inner_position
 
-    def build_tqdm(self, desc, total, leave, initial = 0):
+    def build_tqdm(self, desc, total, leave, position = None, initial = 0):
         """
         Extension point. Override to provide custom options to tqdm
         initializer.
         """
         return tqdm(desc = desc, total = total, leave = leave,
             file = self.output_file, initial = initial,
-            position = self.position)
+            position = position)
 
     def build_tqdm_outer(self, desc, total):
         """
@@ -55,7 +57,8 @@ class TQDMCallback(Callback):
         progress bars (Epoch loop)
         """
         return self.build_tqdm(desc = desc, total = total,
-            leave = self.leave_outer, initial = self.initial)
+            leave = self.leave_outer, initial = self.initial,
+            position = self.outer_position)
 
     def build_tqdm_inner(self, desc, total):
         """
@@ -63,7 +66,7 @@ class TQDMCallback(Callback):
         progress bars (Batch loop)
         """
         return self.build_tqdm(desc = desc, total = total,
-            leave = self.leave_inner)
+            leave = self.leave_inner, position = self.inner_position)
 
     def on_epoch_begin(self, epoch, logs = {}):
         self.epoch = epoch
