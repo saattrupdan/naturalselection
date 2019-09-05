@@ -20,7 +20,7 @@ def mnist_train_val_sets():
     return (X_train, Y_train, X_val, Y_val)
 
 def cifar10_train_val_sets():
-    ''' Get normalised and scaled MNIST train- and val sets. '''
+    ''' Get normalised and scaled CIFAR-10 train- and val sets. '''
     from tensorflow.keras.utils import to_categorical
     from tensorflow.keras.datasets import cifar10
     (X_train, Y_train), (X_val, Y_val) = cifar10.load_data()
@@ -33,7 +33,7 @@ def cifar10_train_val_sets():
 
 print("\n~~~ Now evolving MNIST ~~~")
 
-fnns = ns.FNNs(
+nns = ns.NNs(
     size = 50,
     train_val_sets = mnist_train_val_sets(),
     loss_fn = 'categorical_crossentropy',
@@ -43,7 +43,7 @@ fnns = ns.FNNs(
     max_epochs = 3,
     )
 
-history = fnns.evolve(generations = 10)
+history = nns.evolve(generations = 10)
 print("Best overall genome:", history.fittest)
 
 history.plot(
@@ -53,13 +53,13 @@ history.plot(
     file_name = "mnist_plot.png"
     )
 
-best_score = fnns.train_best()
+best_score = nns.train_best()
 print("Best score:", best_score)
 
 
 #print("\n~~~ Now evolving CIFAR-10 ~~~")
 #
-#fnns = ns.FNNs(
+#nns = ns.NNs(
 #    size = 50,
 #    train_val_sets = cifar10_train_val_sets(),
 #    loss_fn = 'categorical_crossentropy',
@@ -69,7 +69,7 @@ print("Best score:", best_score)
 #    max_epochs = 3,
 #    )
 #
-#history = fnns.evolve(generations = 10)
+#history = nns.evolve(generations = 10)
 #print("Best overall genome:", history.fittest)
 #
 #history.plot(
@@ -79,7 +79,7 @@ print("Best score:", best_score)
 #    file_name = "cifar10_plot.png"
 #    )
 #
-#best_score = fnns.train_best()
+#best_score = nns.train_best()
 #print("Best score:", best_score)
 
 

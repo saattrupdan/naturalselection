@@ -8,14 +8,15 @@ from multiprocessing import cpu_count
 
 import naturalselection as ns
 
-class FNN(ns.Genus):
+class NN(ns.Genus):
     ''' Feedforward fully connected neural network genus.
 
     INPUT:
         (int) max_nm_hidden_layers
         (bool) uniform_layers: whether all hidden layers should
                have the same amount of neurons and dropout
-        (iterable) dropout: values for dropout
+        (iterable) input_dropout: values for input dropout
+        (iterable) : values for dropout after hidden layers
         (iterable) neurons_per_hidden_layer = neurons in hidden layers
         (iterable) optimizer: keras optimizers
         (iterable) hidden_activation: keras activation functions
@@ -54,7 +55,7 @@ class FNN(ns.Genus):
                 layer_info["dropout{}".format(layer_idx)] = dropout
             self.__dict__.update(layer_info)
 
-class FNNs(ns.Population):
+class NNs(ns.Population):
     def __init__(self, 
         train_val_sets,
         size = 50, 
@@ -73,7 +74,7 @@ class FNNs(ns.Population):
         output_activation = 'sigmoid',
         max_epochs = 1000000, 
         patience = 3, 
-        min_change = 1e-4,
+        min_change = 1e-3,
         max_training_time = None, 
         max_nm_hidden_layers = 5,
         uniform_layers = False,
@@ -136,7 +137,7 @@ class FNNs(ns.Population):
         self.allow_repeats = False
         self.memory = 'inf'
         
-        self.genus = FNN(
+        self.genus = NN(
             max_nm_hidden_layers = self.max_nm_hidden_layers,
             uniform_layers       = self.uniform_layers,
             input_dropout        = self.input_dropout,
@@ -149,7 +150,7 @@ class FNNs(ns.Population):
             )
 
         self.fitness_fn = partial(
-            self.train_fnn,
+            self.train_nn,
             max_epochs          = self.max_epochs,
             patience            = self.patience,
             min_change          = self.min_change,
@@ -179,12 +180,12 @@ class FNNs(ns.Population):
         # organism' to just be a random one
         self.fittest = np.random.choice(self.population)
 
-    def train_best(self, max_epochs = 1000000, min_change = 1e-4,
+    def train_best(self, max_epochs = 1000000, min_change = 1e-3,
         patience = 10, max_training_time = None, file_name = None):
 
-        best_fnn = self.fittest        
-        fitness = self.train_fnn(
-            fnn                 = best_fnn,
+        best_nn = self.fittest        
+        fitness = self.train_nn(
+            nn                  = best_nn,
             max_epochs          = max_epochs,
             patience            = patience,
             min_change          = min_change,
@@ -195,17 +196,17 @@ class FNNs(ns.Population):
         print("")
         return fitness
 
-    def train_fnn(self, fnn, max_epochs = 1000000, patience = 3,
-        min_change = 1e-4, max_training_time = None, file_name = None, 
+    def train_nn(self, nn, max_epochs = 1000000, patience = 3,
+        min_change = 1e-3, max_training_time = None, file_name = None, 
         worker_idx = None):
         ''' Train a feedforward neural network and output the score.
         
         INPUT
-            (FNN) fnn: a feedforward neural network genus
+            (NN) nn: a neural network genus
             (int) max_epochs = 1000000: maximum number of epochs to train for
             (int) patience = 3: number of epochs allowed with no progress
                   above min_change
-            (float) min_change = 1e-4: everything below this number will
+            (float) min_change = 1e-3: everything below this number will
                     not count as a change in the score
             (int) max_training_time = None: maximum number of seconds to
                   train for, also training the final epoch after the time
@@ -222,8 +223,6 @@ class FNNs(ns.Population):
         from tensorflow.keras import backend as K
         from tensorflow.python.util import deprecation
         from tensorflow import set_random_seed
-        
-        from sklearn.metrics import accuracy_score
         from sklearn.metrics import f1_score, precision_score, recall_score
 
         # Custom callbacks
@@ -248,21 +247,21 @@ class FNNs(ns.Population):
             self.nm_labels = Y_val.shape[1]
 
         inputs = Input(shape = (self.nm_features,))
-        x = Dropout(fnn.input_dropout)(inputs)
+        x = Dropout(nn.input_dropout)(inputs)
 
         if self.uniform_layers:
-            for _ in range(fnn.nm_hidden_layers):
-                x = Dense(fnn.neurons, activation = fnn.hidden_activation,
-                    kernel_initializer = fnn.initializer)(x)
-                x = Dropout(fnn.dropout)(x)
+            for _ in range(nn.nm_hidden_layers):
+                x = Dense(nn.neurons, activation = nn.hidden_activation,
+                    kernel_initializer = nn.initializer)(x)
+                x = Dropout(nn.dropout)(x)
         else:
             for i in count():
                 try:
-                    neurons = fnn.__dict__["neurons{}".format(i)]
+                    neurons = nn.__dict__["neurons{}".format(i)]
                     if neurons:
-                        x = Dense(neurons, activation = fnn.hidden_activation,
-                            kernel_initializer = fnn.initializer)(x)
-                    dropout = fnn.__dict__["dropout{}".format(i)]
+                        x = Dense(neurons, activation = nn.hidden_activation,
+                            kernel_initializer = nn.initializer)(x)
+                    dropout = nn.__dict__["dropout{}".format(i)]
                     if dropout:
                         x = Dropout(dropout)(x)
                 except:
@@ -270,18 +269,20 @@ class FNNs(ns.Population):
 
         outputs = Dense(self.nm_labels,
             activation = self.output_activation,
-            kernel_initializer = fnn.initializer)(x)
+            kernel_initializer = nn.initializer)(x)
 
         nn = Model(inputs = inputs, outputs = outputs)
 
         if self.score == 'accuracy':
             metrics = ['accuracy']        
+        elif self.score == 'categorical accuracy':
+            metrics = ['categorical accuracy']
         else:
             metrics = []
 
         nn.compile(
             loss = self.loss_fn,
-            optimizer = fnn.optimizer,
+            optimizer = nn.optimizer,
             metrics = metrics
             )
 
@@ -311,7 +312,7 @@ class FNNs(ns.Population):
         nn.fit(
             X_train,
             Y_train,
-            batch_size = fnn.batch_size,
+            batch_size = nn.batch_size,
             validation_data = (X_val, Y_val),
             epochs = max_epochs,
             callbacks = callbacks,
@@ -327,7 +328,7 @@ class FNNs(ns.Population):
             average = None
 
         Y_hat = nn.predict(X_val, batch_size = 128)
-        if self.score == 'accuracy':
+        if self.score == 'accuracy' or self.score == 'categorical accuracy':
             fitness = nn.evaluate(X_val, Y_val, verbose = 0)[1]
         elif self.score == 'f1':
             Y_hat = np.greater(Y_hat, 0.5)

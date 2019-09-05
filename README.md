@@ -87,19 +87,19 @@ Note that the models are trained in parallel, so it is loading in a copy of the 
 ...   Y_val = to_categorical(mnist.test_labels())
 ...   return (X_train, Y_train, X_val, Y_val)
 ...
->>> fnns = ns.FNNs(
-... size = 30,
-... train_val_sets = mnist_train_val_sets(),
-... loss_fn = 'categorical_crossentropy',
-... score = 'accuracy',
-... output_activation = 'softmax',
-... max_epochs = 5,
-... max_training_time = 90,
-... # workers = 2, # If you want to reduce parallelism
-... # multiprocessing = False # If you want to disable parallelism
-... )
+>>> nns = ns.NNs(
+...   size = 30,
+...   train_val_sets = mnist_train_val_sets(),
+...   loss_fn = 'categorical_crossentropy',
+...   score = 'accuracy',
+...   output_activation = 'softmax',
+...   max_epochs = 5,
+...   max_training_time = 90,
+...   # workers = 2, # If you want to reduce parallelism
+...   # multiprocessing = False # If you want to disable parallelism
+...   )
 ...
->>> history = fnns.evolve(generations = 20)
+>>> history = nns.evolve(generations = 20)
 Evolving population: 100%|██████████████████| 20/20 [1:49:58<00:00, 177.22s/it]
 Computing fitness: 100%|█████████████████████████| 8/8 [03:08<00:00, 22.74s/it]
 >>> 
@@ -124,7 +124,7 @@ We can then train the best performing model and save it locally:
 
 ```python3
 >>> # Training the best model and saving it to mnist_model.h5
->>> best_score = fnns.train_best(file_name = 'mnist_model')
+>>> best_score = nns.train_best(file_name = 'mnist_model')
 Epoch: 0 - loss: 0.384, val_loss: 0.141: 100%|███████| 60000/60000 [00:09<00:00, 2812.43it/s]
 (...)
 Epoch: 49 - loss: 0.060, val_loss: 0.056: 100%|██████| 60000/60000 [00:09<00:00, 1353.92it/s]
