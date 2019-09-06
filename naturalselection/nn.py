@@ -27,9 +27,8 @@ class NN(ns.Genus):
         input_dropout = np.arange(0, 0.6, 0.1),
         hidden_dropout = np.arange(0, 0.6, 0.1),
         neurons = np.array([2 ** n for n in range(4, 11)]),
-        optimizer = np.array(['sgd', 'rmsprop', 'adagrad', 'adadelta',
-                              'adamax', 'adam', 'nadam']),
-        hidden_activation = np.array(['relu', 'elu', 'softplus', 'softsign']),
+        optimizer = np.array(['adamax', 'adam', 'nadam']),
+        hidden_activation = np.array(['relu', 'elu']),
         batch_size = np.array([2 ** n for n in range(4, 7)]),
         initializer = np.array(['lecun_uniform', 'lecun_normal',
                                 'glorot_uniform', 'glorot_normal',
@@ -81,10 +80,8 @@ class NNs(ns.Population):
         input_dropout = np.arange(0, 0.6, 0.1),
         hidden_dropout = np.arange(0, 0.6, 0.1),
         neurons = np.array([2 ** n for n in range(4, 11)]),
-        optimizer = np.array(['sgd', 'rmsprop', 'adagrad', 'adadelta',
-                              'adamax', 'adam', 'nadam']),
-        hidden_activation = np.array(['relu', 'elu', 'softplus',
-                                      'softsign']),
+        optimizer = np.array(['adamax', 'adam', 'nadam']),
+        hidden_activation = np.array(['relu', 'elu']),
         batch_size = np.array([2 ** n for n in range(4, 7)]),
         initializer = np.array(['lecun_uniform', 'lecun_normal',
                                 'glorot_uniform', 'glorot_normal',
@@ -300,11 +297,13 @@ class NNs(ns.Population):
         callbacks = [earlier_stopping]
         if self.progress_bars >= 3:
             if worker_idx:
+                desc = f'Worker {worker_idx % self.workers}, '
                 tqdm_callback = TQDMCallback(
                     show_outer = False, 
                     inner_position = (worker_idx % self.workers) + 2,
                     leave_inner = False,
-                    inner_description_update = 'Epoch: {epoch}'
+                    inner_description_update = desc + 'Epoch {epoch}',
+                    inner_description_initial = desc + 'Epoch {epoch}'
                     )
             else:
                 tqdm_callback = TQDMCallback(

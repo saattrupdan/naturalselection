@@ -1,6 +1,6 @@
 import naturalselection as ns
 
-def preprocessing(X):
+def image_preprocessing(X):
     ''' Basic normalisation and scaling preprocessing. '''
     import numpy as np
     X = X.reshape((-1, np.prod(X.shape[1:])))
@@ -9,77 +9,77 @@ def preprocessing(X):
     X -= X.mean(axis = 0)
     return X
 
-def mnist_train_val_sets():
-    ''' Get normalised and scaled MNIST train- and val sets. '''
-    from tensorflow.keras.utils import to_categorical
-    import mnist
-    X_train = preprocessing(mnist.train_images())
-    Y_train = to_categorical(mnist.train_labels())
-    X_val = preprocessing(mnist.test_images())
-    Y_val = to_categorical(mnist.test_labels())
-    return (X_train, Y_train, X_val, Y_val)
+def train_val_sets(kind = 'mnist'):
+    ''' Get normalised and scaled train- and val sets. '''
 
-def cifar10_train_val_sets():
-    ''' Get normalised and scaled CIFAR-10 train- and val sets. '''
     from tensorflow.keras.utils import to_categorical
-    from tensorflow.keras.datasets import cifar10
-    (X_train, Y_train), (X_val, Y_val) = cifar10.load_data()
-    X_train = preprocessing(X_train)
+    if kind == 'mnist':
+        import tensorflow.keras.datasets.mnist as data
+    if kind == 'fashion_mnist':
+        import tensorflow.keras.datasets.fashion_mnist as data
+    elif kind == 'cifar10':
+        import tensorflow.keras.datasets.cifar10 as data
+    elif kind == 'cifar100':
+        import tensorflow.keras.datasets.cifar100 as data
+    elif kind == 'boston_housing':
+        import tensorflow.keras.datasets.boston_housing as data
+    elif kind == 'imdb':
+        import tensorflow.keras.datasets.imdb as data
+    elif kind == 'reuters':
+        import tensorflow.keras.datasets.reuters as data
+    else:
+        raise NameError('Dataset not recognised.')
+
+    (X_train, Y_train), (X_val, Y_val) = data.load_data()
+    X_train = image_preprocessing(X_train)
     Y_train = to_categorical(Y_train)
-    X_val = preprocessing(X_val)
+    X_val = image_preprocessing(X_val)
     Y_val = to_categorical(Y_val)
     return (X_train, Y_train, X_val, Y_val)
 
+def evolve_nn(kind = 'mnist'):
 
-print("\n~~~ Now evolving MNIST ~~~")
+    if kind == 'mnist':
+        max_training_time = 60
+    if kind == 'fashion_mnist':
+        max_training_time = 240
+    elif kind == 'cifar10':
+        max_training_time = 120
+    elif kind == 'cifar100':
+        max_training_time = 240
+    else:
+        raise NameError('Dataset not recognised.')
 
-nns = ns.NNs(
-    size = 30,
-    train_val_sets = mnist_train_val_sets(),
-    loss_fn = 'categorical_crossentropy',
-    score = 'accuracy',
-    output_activation = 'softmax',
-    max_training_time = 60,
-    max_epochs = 1,
-    )
+    print(f"\n~~~ Now evolving {kind} ~~~")
 
-history = nns.evolve(generations = 20)
-print("Best overall genome:", history.fittest)
+    nns = ns.NNs(
+        size = 30,
+        train_val_sets = train_val_sets(kind),
+        loss_fn = 'categorical_crossentropy',
+        score = 'accuracy',
+        output_activation = 'softmax',
+        max_training_time = max_training_time,
+        max_epochs = 1,
+        )
 
-history.plot(
-    title = "Validation accuracy by generation",
-    ylabel = "Validation accuracy",
-    show_plot = False,
-    file_name = "mnist_plot.png"
-    )
+    history = nns.evolve(generations = 30)
+    print("Best overall genome:", history.fittest)
 
-best_score = nns.train_best()
-print("Best score:", best_score)
+    history.plot(
+        title = "Validation accuracy by generation",
+        ylabel = "Validation accuracy",
+        show_plot = False,
+        file_name = f'{kind}_plot.png'
+        )
 
-
-#print("\n~~~ Now evolving CIFAR-10 ~~~")
-#
-#nns = ns.NNs(
-#    size = 50,
-#    train_val_sets = cifar10_train_val_sets(),
-#    loss_fn = 'categorical_crossentropy',
-#    score = 'accuracy',
-#    output_activation = 'softmax',
-#    max_training_time = 300,
-#    max_epochs = 3,
-#    )
-#
-#history = nns.evolve(generations = 10)
-#print("Best overall genome:", history.fittest)
-#
-#history.plot(
-#    title = "Validation accuracy by generation",
-#    ylabel = "Validation accuracy",
-#    show_plot = False,
-#    file_name = "cifar10_plot.png"
-#    )
-#
-#best_score = nns.train_best()
-#print("Best score:", best_score)
+    best_score = nns.train_best()
+    print("Best score:", best_score)
 
 
+if __name__ == '__main__':
+    from sys import argv
+    if len(argv) > 1:
+        for arg in argv[1:]:
+            evolve_nn(arg)
+    else:
+        evolve_nn()
