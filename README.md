@@ -106,7 +106,7 @@ Evolving population: 100%|██████████████████
 Computing fitness: 100%|█████████████████████████| 7/7 [01:20<00:00, 10.13s/it]
 >>> 
 >>> history.fittest
-{'genome': {'optimizer': 'adagrad', 'hidden_activation': 'relu',
+{'genome': {'optimizer': 'adam', 'hidden_activation': 'relu',
 'batch_size': 32, 'initializer': 'glorot_normal', 'input_dropout': 0.2,
 'neurons0': 256, 'dropout0': 0.0, 'neurons1': 128, 'dropout1': 0.1,
 'neurons2': 256, 'dropout2': 0.1, 'neurons3': 256, 'dropout3': 0.2,
