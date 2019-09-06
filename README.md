@@ -93,22 +93,22 @@ Note that the models are trained in parallel, so it is loading in a copy of the 
 ...   loss_fn = 'categorical_crossentropy',
 ...   score = 'accuracy',
 ...   output_activation = 'softmax',
-...   max_epochs = 5,
-...   max_training_time = 90,
+...   max_epochs = 1,
+...   max_training_time = 60,
 ...   # workers = 2, # If you want to reduce parallelism
 ...   # multiprocessing = False # If you want to disable parallelism
 ...   )
 ...
 >>> history = nns.evolve(generations = 20)
-Evolving population: 100%|██████████████████| 20/20 [1:49:58<00:00, 177.22s/it]
-Computing fitness: 100%|█████████████████████████| 8/8 [03:08<00:00, 22.74s/it]
+Evolving population: 100%|█████████████████████| 20/20 [57:18<00:00, 73.22s/it]
+Computing fitness: 100%|█████████████████████████| 7/7 [01:20<00:00, 10.13s/it]
 >>> 
 >>> history.fittest
 {'genome': {'optimizer': 'adagrad', 'hidden_activation': 'relu',
-'batch_size': 64, 'initializer': 'lecun_normal', 'input_dropout': 0.3,
-'neurons0': 512, 'dropout0': 0.2, 'neurons1': 128, 'dropout1': 0.0,
-'neurons2': 0, 'dropout2': 0.4, 'neurons3': 128, 'dropout3': 0.3,
-'neurons4': 0, 'dropout4': 0.3}, 'fitness': 0.9703}
+'batch_size': 32, 'initializer': 'glorot_normal', 'input_dropout': 0.2,
+'neurons0': 256, 'dropout0': 0.0, 'neurons1': 128, 'dropout1': 0.1,
+'neurons2': 256, 'dropout2': 0.1, 'neurons3': 256, 'dropout3': 0.2,
+'neurons4': 128, 'dropout4': 0.4}, 'fitness': 0.9659}
 >>> 
 >>> history.plot(
 ...   title = "Validation accuracy by generation",
@@ -116,21 +116,19 @@ Computing fitness: 100%|██████████████████�
 ...   )
 ```
 
-![Plot showing fitness value (which is accuracy in this case) over 20 generations, converging to roughly 97%.](https://filedn.com/lRBwPhPxgV74tO0rDoe8SpH/naturalselection_data/nn_example.png)
-
-The output can be read as the network having neurons [512, 128, 128] with dropouts [30%, 20%, 0%, 30%], along with the adagrad optimizer, relu activation, lecun_normal initializer and a batch size of 64.
+![Plot showing fitness value (which is accuracy in this case) over 20 generations, converging to roughly 96.50%.](https://filedn.com/lRBwPhPxgV74tO0rDoe8SpH/naturalselection_data/mnist_example.png)
 
 We can then train the best performing model and save it locally:
 
 ```python3
 >>> # Training the best model and saving it to mnist_model.h5
 >>> best_score = nns.train_best(file_name = 'mnist_model')
-Epoch: 0 - loss: 0.384, val_loss: 0.141: 100%|███████| 60000/60000 [00:09<00:00, 2812.43it/s]
+Epoch: 0 - loss: 0.273, acc: 0.924, val_loss: 0.116, val_acc: 0.966: 100%|███████| 60000/60000 [00:12<00:00, 1388.45it/s]
 (...)
-Epoch: 49 - loss: 0.060, val_loss: 0.056: 100%|██████| 60000/60000 [00:09<00:00, 1353.92it/s]
+Epoch: 19 - loss: 0.029, acc: 0.991, val_loss: 0.073, val_acc: 0.982: 100%|██████| 60000/60000 [00:11<00:00, 1846.24it/s]
 >>>
 >>> best_score
-0.9853
+0.982
 ```
 
 ## Algorithmic details

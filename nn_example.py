@@ -34,16 +34,16 @@ def cifar10_train_val_sets():
 print("\n~~~ Now evolving MNIST ~~~")
 
 nns = ns.NNs(
-    size = 50,
+    size = 30,
     train_val_sets = mnist_train_val_sets(),
     loss_fn = 'categorical_crossentropy',
     score = 'accuracy',
     output_activation = 'softmax',
-    max_training_time = 200,
-    max_epochs = 3,
+    max_training_time = 60,
+    max_epochs = 1,
     )
 
-history = nns.evolve(generations = 10)
+history = nns.evolve(generations = 20)
 print("Best overall genome:", history.fittest)
 
 history.plot(

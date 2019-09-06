@@ -74,7 +74,7 @@ class NNs(ns.Population):
         output_activation = 'sigmoid',
         max_epochs = 1000000, 
         patience = 3, 
-        min_change = 1e-3,
+        min_change = 1e-4,
         max_training_time = None, 
         max_nm_hidden_layers = 5,
         uniform_layers = False,
@@ -180,7 +180,7 @@ class NNs(ns.Population):
         # organism' to just be a random one
         self.fittest = np.random.choice(self.population)
 
-    def train_best(self, max_epochs = 1000000, min_change = 1e-3,
+    def train_best(self, max_epochs = 1000000, min_change = 1e-4,
         patience = 10, max_training_time = None, file_name = None):
 
         best_nn = self.fittest        
@@ -192,12 +192,10 @@ class NNs(ns.Population):
             max_training_time   = max_training_time,
             file_name           = file_name
             )
-        print("")
-        print("")
         return fitness
 
     def train_nn(self, nn, max_epochs = 1000000, patience = 3,
-        min_change = 1e-3, max_training_time = None, file_name = None, 
+        min_change = 1e-4, max_training_time = None, file_name = None, 
         worker_idx = None):
         ''' Train a feedforward neural network and output the score.
         
@@ -206,7 +204,7 @@ class NNs(ns.Population):
             (int) max_epochs = 1000000: maximum number of epochs to train for
             (int) patience = 3: number of epochs allowed with no progress
                   above min_change
-            (float) min_change = 1e-3: everything below this number will
+            (float) min_change = 1e-4: everything below this number will
                     not count as a change in the score
             (int) max_training_time = None: maximum number of seconds to
                   train for, also training the final epoch after the time
@@ -235,7 +233,7 @@ class NNs(ns.Population):
         deprecation._PRINT_DEPRECATION_WARNINGS = False
         os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
-        # Set random seeds for reproducibility
+        # Set random seeds to enable better comparison of scores
         np.random.seed(0)
         set_random_seed(0)
 
@@ -271,7 +269,7 @@ class NNs(ns.Population):
             activation = self.output_activation,
             kernel_initializer = nn.initializer)(x)
 
-        nn = Model(inputs = inputs, outputs = outputs)
+        model = Model(inputs = inputs, outputs = outputs)
 
         if self.score == 'accuracy':
             metrics = ['accuracy']        
@@ -280,14 +278,19 @@ class NNs(ns.Population):
         else:
             metrics = []
 
-        nn.compile(
+        model.compile(
             loss = self.loss_fn,
             optimizer = nn.optimizer,
             metrics = metrics
             )
 
+        if self.score == 'accuracy' or self.score == 'categorical_accuracy':
+            monitor = 'val_acc'
+        else:
+            monitor = 'val_loss'
+
         earlier_stopping = EarlierStopping(
-            monitor = 'val_loss',
+            monitor = monitor,
             patience = patience,
             min_delta = min_change,
             restore_best_weights = True,
@@ -300,7 +303,8 @@ class NNs(ns.Population):
                 tqdm_callback = TQDMCallback(
                     show_outer = False, 
                     inner_position = (worker_idx % self.workers) + 2,
-                    leave_inner = False
+                    leave_inner = False,
+                    inner_description_update = 'Epoch: {epoch}'
                     )
             else:
                 tqdm_callback = TQDMCallback(
@@ -309,7 +313,7 @@ class NNs(ns.Population):
                     )
             callbacks.append(tqdm_callback)
 
-        nn.fit(
+        model.fit(
             X_train,
             Y_train,
             batch_size = nn.batch_size,
@@ -320,16 +324,16 @@ class NNs(ns.Population):
             )
 
         if file_name:
-            nn.save("{}.h5".format(file_name))
+            model.save("{}.h5".format(file_name))
 
         if self.nm_labels > 1:
             average = 'micro'
         else:
             average = None
 
-        Y_hat = nn.predict(X_val, batch_size = 128)
+        Y_hat = model.predict(X_val, batch_size = 128)
         if self.score == 'accuracy' or self.score == 'categorical accuracy':
-            fitness = nn.evaluate(X_val, Y_val, verbose = 0)[1]
+            fitness = model.evaluate(X_val, Y_val, verbose = 0)[1]
         elif self.score == 'f1':
             Y_hat = np.greater(Y_hat, 0.5)
             fitness = f1_score(Y_val, Y_hat, average = average)
@@ -340,7 +344,7 @@ class NNs(ns.Population):
             Y_hat = np.greater(Y_hat, 0.5)
             fitness = recall_score(Y_val, Y_hat, average = average)
         elif self.score == 'loss':
-            fitness = np.divide(1, nn.evaluate(X_val, Y_val, verbose = 0))
+            fitness = np.divide(1, model.evaluate(X_val, Y_val, verbose = 0))
         else:
             # Custom scoring function
             fitness = self.score(Y_val, Y_hat)
