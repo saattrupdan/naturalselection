@@ -125,9 +125,9 @@ We can then train the best performing model and save it locally:
 ```python3
 >>> # Training the best model and saving it to mnist_model.h5
 >>> best_score = nns.train_best(file_name = 'mnist_model')
-Epoch: 0 - loss: 0.273, acc: 0.924, val_loss: 0.116, val_acc: 0.966: 100%|███████| 60000/60000 [00:12<00:00, 1388.45it/s]
+Epoch 0, val_acc: 0.966: 100%|█████████| 60000/60000 [00:12<00:00, 1388.45it/s]
 (...)
-Epoch: 19 - loss: 0.029, acc: 0.991, val_loss: 0.073, val_acc: 0.982: 100%|██████| 60000/60000 [00:11<00:00, 1846.24it/s]
+Epoch 19, val_acc: 0.982: 100%|████████| 60000/60000 [00:11<00:00, 1846.24it/s]
 >>>
 >>> best_score
 0.982
