@@ -584,6 +584,7 @@ class History():
         means = np.mean(fits, axis = 1)
         stds = np.std(fits, axis = 1)
         xs = np.arange(mem)
+        mins = np.array([np.min(fits[x, :]) for x in xs])
 
         if gens == 1:
             discrete = True
