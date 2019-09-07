@@ -2,8 +2,6 @@ import numpy as np
 import os
 from functools import partial 
 import logging
-
-# Used to set default value for workers
 from multiprocessing import cpu_count
 
 import naturalselection as ns

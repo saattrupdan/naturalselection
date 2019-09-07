@@ -14,7 +14,7 @@ setuptools.setup(
     author = "Dan Saattrup Nielsen",
     author_email = "saattrupdan@gmail.com",
     description = "An all-purpose pythonic genetic algorithm",
-    keywords = "genetic algorithm neural network",
+    keywords = "genetic algorithm neural network hyperparameter tuning",
     long_description = long_description,
     long_description_content_type = "text/markdown",
     url = "https://github.com/saattrupdan/naturalselection",

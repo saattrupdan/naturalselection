@@ -1,7 +1,9 @@
-from tensorflow.keras.callbacks import Callback, EarlyStopping
-import numpy as np
-from tqdm import tqdm
 import time
+
+import numpy as np
+from tensorflow.keras.callbacks import Callback, EarlyStopping
+from tqdm import tqdm
+
 
 class TQDMCallback(Callback):
     '''

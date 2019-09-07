@@ -3,19 +3,15 @@ import sys
 import os
 from functools import reduce, partial
 import logging
-
-# Suppressing warnings
 import warnings
+from inspect import getfullargspec
+import multiprocessing as mp
 
 # Plots
 import matplotlib.pyplot as plt
 
 # Progress bars
 from tqdm import tqdm, trange
-
-# Parallelising fitness
-from inspect import getfullargspec
-import multiprocessing as mp
 
 class Genus():
     ''' Storing information about all the possible gene combinations.

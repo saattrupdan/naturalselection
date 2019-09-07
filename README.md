@@ -39,12 +39,12 @@ Evolving population: 100%|██████████████████
 ![Plot showing fitness value over 100 generations.](https://filedn.com/lRBwPhPxgV74tO0rDoe8SpH/naturalselection_data/numbers_example.png)
 
 
-We can also easily solve the classical [OneMax problem](http://tracer.lcc.uma.es/problems/onemax/onemax.html), which is about finding the bit-string of a given length with all 1's. Here we set `goal = 100` in the `evolve` function to allow for early stopping if we reach our goal before the maximum number of generations, which we here set to 5,000. Note that it only takes nine seconds, however.
+We can also easily solve the classical [OneMax problem](http://tracer.lcc.uma.es/problems/onemax/onemax.html), which is about maximising the number of ones in a bit-string of a given length. Here we set `goal = 100` in the `evolve` function to allow for early stopping if we reach our goal before the maximum number of generations, which we here set to 5,000. Note that it only takes nine seconds.
 
 ```python3
 >>> import naturalselection as ns
 >>>
->>> BitString = ns.Genus(**{f'x{n}' : (0,1) for n in range(100)})
+>>> BitString = ns.Genus(**{f'x{n}': (0,1) for n in range(100)})
 >>>
 >>> def sum_bits(bitstring):
 ...   return sum(bitstring.get_genome().values())
@@ -164,7 +164,7 @@ The population is a uniformly random sample of the possible genome values as dic
 Evolving population: 100%|██████████████████| 100/100 [00:05<00:00,  19.47it/s]
 >>> 
 >>> history.fittest
-{'genome' : {'x' : 9989, 'y' : 3}, 'fitness' : 3329.66666666665}
+{'genome': {'x': 9989, 'y': 3}, 'fitness': 3329.66666666665}
 ```
 
 ### Step 2: Compute fitness values
