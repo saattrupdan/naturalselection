@@ -15,7 +15,7 @@ def train_val_sets(kind = 'mnist'):
     from tensorflow.keras.utils import to_categorical
     if kind == 'mnist':
         import tensorflow.keras.datasets.mnist as data
-    if kind == 'fashion_mnist':
+    elif kind == 'fashion_mnist':
         import tensorflow.keras.datasets.fashion_mnist as data
     elif kind == 'cifar10':
         import tensorflow.keras.datasets.cifar10 as data
@@ -41,7 +41,7 @@ def evolve_nn(kind = 'mnist'):
 
     if kind == 'mnist':
         max_training_time = 60
-    if kind == 'fashion_mnist':
+    elif kind == 'fashion_mnist':
         max_training_time = 240
     elif kind == 'cifar10':
         max_training_time = 120
