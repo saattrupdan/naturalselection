@@ -1,7 +1,6 @@
 # NaturalSelection <img src="https://filedn.com/lRBwPhPxgV74tO0rDoe8SpH/naturalselection_data/logo.png" width="50" height="50" alt="Logo of green flower"/>
 
 [![PyPI version](https://badge.fury.io/py/naturalselection.svg)](https://badge.fury.io/py/naturalselection)
-
 [![PyPI weekly downloads](https://img.shields.io/pypi/dw/naturalselection)](https://img.shields.io/pypi/dw/naturalselection)
 
 An all-purpose pythonic genetic algorithm, which includes built-in hyperparameter tuning support for neural networks.
