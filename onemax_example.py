@@ -7,7 +7,7 @@ def sum_bits(bitstring):
 
 bitstrings = ns.Population(
     genus = BitString, 
-    size = 5,
+    size = 10,
     fitness_fn = sum_bits,
     )
 

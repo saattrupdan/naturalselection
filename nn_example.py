@@ -22,7 +22,7 @@ def train_val_sets(kind = 'mnist'):
     elif kind == 'cifar100':
         import tensorflow.keras.datasets.cifar100 as data
     else:
-        raise NameError('Dataset not recognised.')
+        raise NameError(f'Dataset not recognised: {kind}')
 
     (X_train, Y_train), (X_val, Y_val) = data.load_data()
     X_train = image_preprocessing(X_train)
@@ -36,13 +36,13 @@ def evolve_nn(kind = 'mnist'):
     if kind == 'mnist':
         max_training_time = 60
     elif kind == 'fashion_mnist':
-        max_training_time = 180
+        max_training_time = 120
     elif kind == 'cifar10':
         max_training_time = 120
     elif kind == 'cifar100':
         max_training_time = 240
     else:
-        raise NameError('Dataset not recognised.')
+        raise NameError(f'Dataset not recognised: {kind}')
 
     print(f"\n~~~ Now evolving {kind} ~~~")
 
@@ -54,9 +54,10 @@ def evolve_nn(kind = 'mnist'):
         output_activation = 'softmax',
         max_training_time = max_training_time,
         max_epochs = 1,
+        verbose = 2,
         )
 
-    history = nns.evolve(generations = 30)
+    history = nns.evolve(generations = 20)
     print("Best overall genome:", history.fittest)
 
     history.plot(

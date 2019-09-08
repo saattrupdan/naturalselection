@@ -111,11 +111,52 @@ class Organism():
         keys = np.asarray(list(self.get_genome().keys()))
         if mutation_factor == 'default':
             mutation_factor = np.divide(1, keys.size)
-        mut_idx = np.less(np.random.random(keys.size), mutation_factor)
-        mut_vals = {key: self.genus.__dict__[key]\
-            [np.random.choice(range(self.genus.__dict__[key].shape[0]))]
-            for key in keys[mut_idx]}
-        self.__dict__.update(mut_vals)
+
+        # Get the genes that are to be mutated
+        mut_keys = keys[np.less(np.random.random(keys.size), mutation_factor)]
+
+        # Mutation loop
+        mut_dict = {}
+        for key in mut_keys:
+
+            # Get the index of the current gene values in the array of all
+            # possible gene values for that gene
+            gene_vals = self.genus.__dict__[key]
+            gene_type = gene_vals.dtype.type
+
+            # If the gene values are numeric then choose the mutated gene
+            # value following a normal distribution, otherwise a uniform one
+            if issubclass(gene_vals.dtype.type, np.integer) or \
+               issubclass(gene_vals.dtype.typ, np.floating):
+
+                # If gene values aren't sorted then sort them
+                if not np.all(gene_vals[:-1] <= gene_vals[1:]):
+                    gene_vals = np.sort(gene_vals, axis = 0)
+
+                # Find the index of the current gene value
+                gene_idx = np.where(gene_vals == self.get_genome()[key])[0][0]
+
+                # Set a standard deviation to be 1% of the size of the above
+                # array, or 1, whichever is larger
+                scale = max(np.around(gene_vals.size / 100, 0).astype(int), 1)
+
+                # Get a new index for a gene value for the given gene, taken
+                # from a normal distribution centered on gene_idx and with
+                # the above standard deviation
+                rnd_idx = gene_idx
+                while rnd_idx == gene_idx:
+                    rnd_idx = np.random.normal(loc = gene_idx, scale = scale)
+                    rnd_idx = np.around(rnd_idx, 0).astype(int)
+                    rnd_idx = max(rnd_idx, 0)
+                    rnd_idx = min(rnd_idx, gene_vals.size - 1)
+            else:
+                rnd_idx = np.random.choice(range(gene_vals.size))
+
+            # Save the new one gene value
+            mut_dict[key] = gene_vals[rnd_idx]
+
+        # Replace the old gene values by the new ones
+        self.__dict__.update(mut_dict)
         return self
 
 class Population():
@@ -494,8 +535,9 @@ class Population():
             self.logger.debug("New population, of size {}:"\
                 .format(self.population.size))
             self.logger.debug(self.get_genomes())
-            self.logger.debug("Mean fitness: {}".format(np.mean(fitnesses)))
-            self.logger.debug("Std fitness: {}".format(np.std(fitnesses)))
+            self.logger.debug("Median: {}".format(np.median(fitnesses)))
+            self.logger.debug("IQR: {}".format(
+                np.percentile(fitnesses, 75) - np.percentile(fitnesses, 25)))
 
             self.logger.info("Fittest so far, with fitness {}:"\
                 .format(self.fittest.fitness))
@@ -560,10 +602,10 @@ class History():
     def plot(self, title = 'Fitness by generation', xlabel = 'Generation',
         ylabel = 'Fitness', file_name = None, show_plot = True,
         show_max = False, only_show_max = False, show_min = False,
-        show_minmax_area = True, show_quartile_area = True,
+        show_minmax_area = False, show_quartile_area = True,
         show_lower_quartile = False, show_upper_quartile = False,
         show_median = True, legend = True, legend_location = 'lower right',
-        show_all_lines = False, show_all_areas = True):
+        show_all_lines = False, show_all_areas = False):
         ''' Plot the fitness values.
 
         INPUT
@@ -581,11 +623,11 @@ class History():
                    value line on plot
             (bool) show_all_lines = False: show minimum, lower quartile,
                    median, upper quartile and maximum lines on plot
-            (bool) show_minmax_area = True: show a filled area between the
+            (bool) show_minmax_area = False: show a filled area between the
                    minima and the maxima on plot
             (bool) show_quartile_area = True: show a filled area between the
                    lower and upper quartiles on plot
-            (bool) show_all_areas = True: show minmax and quartile area on plot
+            (bool) show_all_areas = False: show both minmax and quartile area
             (bool) only_show_max = False: only show the max value line
             (bool) legend = True: show legend
             (string or int) legend_location = 'lower right': legend location, 

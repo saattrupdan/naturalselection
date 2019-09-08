@@ -2,6 +2,8 @@
 
 [![PyPI version](https://badge.fury.io/py/naturalselection.svg)](https://badge.fury.io/py/naturalselection)
 
+[![PyPI weekly downloads](https://img.shields.io/pypi/dw/naturalselection)](https://img.shields.io/pypi/dw/naturalselection)
+
 An all-purpose pythonic genetic algorithm, which includes built-in hyperparameter tuning support for neural networks.
 
 
@@ -14,7 +16,7 @@ $ pip install naturalselection
 
 ## Usage
 
-Here is a toy example optimising a pair of numbers with respect to division.
+Here is a toy example looking for a pair of numbers with large first coordinate and small second coordinate:
 
 ```python
 >>> import naturalselection as ns
@@ -24,14 +26,14 @@ Here is a toy example optimising a pair of numbers with respect to division.
 >>> pairs = ns.Population(
 ...   genus = Pair, 
 ...   size = 100, 
-...   fitness_fn = lambda n: n.x/n.y
+...   fitness_fn = lambda n: max(n.x - n.y, 0)
 ...   )
 ...
 >>> history = pairs.evolve(generations = 100)
-Evolving population: 100%|██████████████████| 100/100 [00:05<00:00,  19.59it/s]
+Evolving population: 100%|██████████████████| 100/100 [00:02<00:00,  35.76it/s]
 >>>
 >>> history.fittest
-{'genome': {'x': 9922, 'y': 10}, 'fitness': 992.2}
+{'genome': {'x': 9999, 'y': 1}, 'fitness': 9998}
 >>>
 >>> history.plot()
 ```
@@ -55,18 +57,18 @@ We can also easily solve the classical [OneMax problem](http://tracer.lcc.uma.es
 ...   fitness_fn = sum_bits
 ...   )
 ... 
->>> history = bitstrings.evolve(generations = 500, goal = 100)
-Evolving population: 36%|██████           | 1805/5000 [00:09<00:16, 194.43it/s]
+>>> history = bitstrings.evolve(generations = 5000, goal = 100)
+Evolving population: 30%|█████            | 1499/5000 [00:08<00:19, 180.93it/s]
 >>> 
 >>> history.plot(only_show_max = True)
 ```
 
-![Plot showing fitness value over 4500 generations, converging steadily to the optimal filled out sequence of ones.](https://filedn.com/lRBwPhPxgV74tO0rDoe8SpH/naturalselection_data/onemax_example.png)
+![Plot showing fitness value over 1805 generations, converging steadily to the optimal filled out sequence of ones.](https://filedn.com/lRBwPhPxgV74tO0rDoe8SpH/naturalselection_data/onemax_example.png)
 
 
-Lastly, here is an example of finding a fully connected feedforward neural network to model [MNIST](https://en.wikipedia.org/wiki/MNIST_database).
+Lastly, here is an example of finding a fully connected feedforward neural network to model [Fashion-MNIST](https://github.com/zalandoresearch/fashion-mnist).
 
-Note that the models are trained in parallel, so it is loading in a copy of the MNIST data set for every CPU core in your computer, each of which takes up ~750MB of memory. If this causes you to run into memory trouble then you can set the `workers` parameter to something small like 2, or set `multiprocessing = False` to turn parallelism off completely. I've marked these in the code below.
+Note that the models are trained in parallel, so it is loading in a copy of the data set for every CPU core in your computer, each of which takes up ~600MB of memory. If this causes you to run into memory trouble then you can set the `workers` parameter to something small like 2, or set `multiprocessing = False` to turn parallelism off completely. I've marked these in the code below.
 
 ```python3
 >>> import naturalselection as ns
@@ -79,29 +81,30 @@ Note that the models are trained in parallel, so it is loading in a copy of the 
 ...   X -= X.mean(axis = 0)
 ...   return X
 ... 
->>> def mnist_train_val_sets():
-...   ''' Get normalised and scaled MNIST train- and val sets. '''
+>>> def fashion_mnist_train_val_sets():
+...   ''' Get normalised and scaled Fashion-MNIST train- and val sets. '''
 ...   from tensorflow.keras.utils import to_categorical
-...   import mnist
-...   X_train = preprocessing(mnist.train_images())
-...   Y_train = to_categorical(mnist.train_labels())
-...   X_val = preprocessing(mnist.test_images())
-...   Y_val = to_categorical(mnist.test_labels())
+...   from tensorflow.keras.datasets import fashion_mnist
+...   (X_train, Y_train), (X_val, Y_val) = fashion_mnist.load_data()
+...   X_train = preprocessing(X_train)
+...   Y_train = to_categorical(Y_train)
+...   X_val = preprocessing(X_val)
+...   Y_val = to_categorical(Y_val)
 ...   return (X_train, Y_train, X_val, Y_val)
 ...
 >>> nns = ns.NNs(
-...   size = 30,
-...   train_val_sets = mnist_train_val_sets(),
+...   size = 20,
+...   train_val_sets = fashion_mnist_train_val_sets(),
 ...   loss_fn = 'categorical_crossentropy',
 ...   score = 'accuracy',
 ...   output_activation = 'softmax',
 ...   max_epochs = 1,
-...   max_training_time = 60,
+...   max_training_time = 120,
 ...   # workers = 2, # If you want to reduce parallelism
 ...   # multiprocessing = False # If you want to disable parallelism
 ...   )
 ...
->>> history = nns.evolve(generations = 20)
+>>> history = nns.evolve(generations = 20)asd
 Evolving population: 100%|█████████████████████| 20/20 [57:18<00:00, 73.22s/it]
 Computing fitness: 100%|█████████████████████████| 7/7 [01:20<00:00, 10.13s/it]
 >>> 
@@ -118,13 +121,13 @@ Computing fitness: 100%|██████████████████�
 ...   )
 ```
 
-![Plot showing fitness value (which is accuracy in this case) over 20 generations, converging to roughly 96.50%.](https://filedn.com/lRBwPhPxgV74tO0rDoe8SpH/naturalselection_data/mnist_example.png)
+![Plot showing fitness value (which is accuracy in this case) over 20 generations, converging to roughly asd96.50%.](https://filedn.com/lRBwPhPxgV74tO0rDoe8SpH/naturalselection_data/fashion_mnist_example.png)
 
-We can then train the best performing model and save it locally:
+We can then train the best performing model and save it locally:asd
 
 ```python3
->>> # Training the best model and saving it to mnist_model.h5
->>> best_score = nns.train_best(file_name = 'mnist_model')
+>>> # Training the best model and saving it to fashion_mnist_model.h5
+>>> best_score = nns.train_best(file_name = 'fashion_mnist_model')
 Epoch 0, val_acc: 0.966: 100%|█████████| 60000/60000 [00:12<00:00, 1388.45it/s]
 (...)
 Epoch 19, val_acc: 0.982: 100%|████████| 60000/60000 [00:11<00:00, 1846.24it/s]
