@@ -21,12 +21,6 @@ def train_val_sets(kind = 'mnist'):
         import tensorflow.keras.datasets.cifar10 as data
     elif kind == 'cifar100':
         import tensorflow.keras.datasets.cifar100 as data
-    elif kind == 'boston_housing':
-        import tensorflow.keras.datasets.boston_housing as data
-    elif kind == 'imdb':
-        import tensorflow.keras.datasets.imdb as data
-    elif kind == 'reuters':
-        import tensorflow.keras.datasets.reuters as data
     else:
         raise NameError('Dataset not recognised.')
 
@@ -42,7 +36,7 @@ def evolve_nn(kind = 'mnist'):
     if kind == 'mnist':
         max_training_time = 60
     elif kind == 'fashion_mnist':
-        max_training_time = 240
+        max_training_time = 180
     elif kind == 'cifar10':
         max_training_time = 120
     elif kind == 'cifar100':
@@ -53,7 +47,7 @@ def evolve_nn(kind = 'mnist'):
     print(f"\n~~~ Now evolving {kind} ~~~")
 
     nns = ns.NNs(
-        size = 30,
+        size = 20,
         train_val_sets = train_val_sets(kind),
         loss_fn = 'categorical_crossentropy',
         score = 'accuracy',

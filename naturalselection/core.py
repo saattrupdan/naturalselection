@@ -559,8 +559,11 @@ class History():
 
     def plot(self, title = 'Fitness by generation', xlabel = 'Generation',
         ylabel = 'Fitness', file_name = None, show_plot = True,
-        show_max = True, only_show_max = False, discrete = False,
-        legend = True, legend_location = 'lower right'):
+        show_max = False, only_show_max = False, show_min = False,
+        show_minmax_area = True, show_quartile_area = True,
+        show_lower_quartile = False, show_upper_quartile = False,
+        show_median = True, legend = True, legend_location = 'lower right',
+        show_all_lines = False, show_all_areas = True):
         ''' Plot the fitness values.
 
         INPUT
@@ -569,9 +572,21 @@ class History():
             (string) ylabel = 'Fitness': label on the y-axis
             (string) file_name = None: file name to save the plot to
             (bool) show_plot = True: show plot as a pop-up
-            (bool) show_max = True: show max value line on plot
-            (bool) only_show_max = False: Hide the plot with means and stds
-            (bool) discrete = False: make the error plot discrete
+            (bool) show_median = True: show a median value line on plot
+            (bool) show_max = False: show a maximum value line on plot
+            (bool) show_min = False: show a minimum value line on plot
+            (bool) show_lower_quartile = False: show a lower quartile
+                   value line on plot
+            (bool) show_upper_quartile = False: show an upper quartile
+                   value line on plot
+            (bool) show_all_lines = False: show minimum, lower quartile,
+                   median, upper quartile and maximum lines on plot
+            (bool) show_minmax_area = True: show a filled area between the
+                   minima and the maxima on plot
+            (bool) show_quartile_area = True: show a filled area between the
+                   lower and upper quartiles on plot
+            (bool) show_all_areas = True: show minmax and quartile area on plot
+            (bool) only_show_max = False: only show the max value line
             (bool) legend = True: show legend
             (string or int) legend_location = 'lower right': legend location, 
                             either as e.g. 'lower right' or as an integer
@@ -581,16 +596,17 @@ class History():
         fits = self.fitness_history[::-1]
         gens = self.generations
         mem = self.memory
-        means = np.mean(fits, axis = 1)
-        stds = np.std(fits, axis = 1)
         xs = np.arange(mem)
+        xs_shift = xs + (gens - mem)
+
+        meds = np.median(fits, axis = 1)
+        lower_quartiles = np.percentile(fits, 25, axis = 1)
+        upper_quartiles = np.percentile(fits, 75, axis = 1)
         mins = np.array([np.min(fits[x, :]) for x in xs])
+        maxs = np.array([np.max(fits[x, :]) for x in xs])
 
         if gens == 1:
             discrete = True
-
-        if show_max or only_show_max:
-            maxs = np.array([np.max(fits[x, :]) for x in xs])
 
         plt.style.use("ggplot")
         plt.figure()
@@ -599,24 +615,29 @@ class History():
         plt.xlabel(xlabel)
         plt.ylabel(ylabel)
 
-        xs_shift = xs + (gens - mem)
+        if show_max or only_show_max or show_all_lines:
+            plt.plot(xs_shift, maxs[xs], '-', color = 'blue', label = 'max')
 
-        if show_max:
-            plt.plot(xs_shift, maxs[xs], '--', color = 'blue', label = 'max')
-
-        if discrete and not only_show_max:
-            plt.errorbar(xs_shift, means[xs], stds[xs], fmt = 'ok', 
-                label = 'mean and std')
-        elif not only_show_max:
-            plt.plot(xs_shift, means[xs], '-', color = 'black', label = 'mean')
-            plt.fill_between(
-                xs_shift, 
-                means[xs] - stds[xs],
-                means[xs] + stds[xs], 
-                alpha = 0.2, 
-                color = 'gray', 
-                label = 'std'
-                )
+        if not only_show_max:
+            if show_median or show_all_lines:
+                plt.plot(xs_shift, meds[xs], '-', color = 'black', 
+                    label = 'median')
+            if show_min or show_all_lines:
+                plt.plot(xs_shift, mins[xs], '-', color = 'red', 
+                    label = 'min')
+            if show_lower_quartile or show_all_lines:
+                plt.plot(xs_shift, lower_quartiles[xs], ':', color = 'red',
+                    label = 'lower quartile')
+            if show_upper_quartile or show_all_lines:
+                plt.plot(xs_shift, upper_quartiles[xs], ':', color = 'blue',
+                    label = 'upper quartile')
+            if show_minmax_area or show_all_areas:
+                plt.fill_between(xs_shift, mins[xs], maxs[xs], alpha = 0.1, 
+                    color = 'gray', label = 'min-max')
+            if show_quartile_area or show_all_areas:
+                plt.fill_between(xs_shift, lower_quartiles[xs],
+                    upper_quartiles[xs], alpha = 0.3, color = 'gray', 
+                    label = 'quartiles')
 
         if legend:
             plt.legend(loc = legend_location)

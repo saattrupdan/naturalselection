@@ -14,7 +14,7 @@ class TQDMCallback(Callback):
     def __init__(self, outer_description = "Training",
         inner_description_initial = "Epoch: {epoch}",
         inner_description_update = "Epoch: {epoch} - {metrics}",
-        metric_format = "{name}: {value:0.4f}",
+        metric_format = "{name}: {value:0.3f}",
         separator = ", ",
         leave_inner = True,
         leave_outer = True,
