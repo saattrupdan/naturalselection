@@ -3,7 +3,7 @@
 [![PyPI version](https://badge.fury.io/py/naturalselection.svg)](https://badge.fury.io/py/naturalselection)
 [![PyPI weekly downloads](https://img.shields.io/pypi/dw/naturalselection)](https://img.shields.io/pypi/dw/naturalselection)
 
-An all-purpose pythonic genetic algorithm, which includes built-in hyperparameter tuning support for neural networks.
+An general-purpose pythonic genetic algorithm, which includes built-in hyperparameter tuning support for neural networks.
 
 
 ## Installation
