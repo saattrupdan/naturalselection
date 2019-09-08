@@ -103,16 +103,16 @@ Note that the models are trained in parallel, so it is loading in a copy of the 
 ...   # multiprocessing = False # If you want to disable parallelism
 ...   )
 ...
->>> history = nns.evolve(generations = 20)asd
-Evolving population: 100%|█████████████████████| 20/20 [57:18<00:00, 73.22s/it]
-Computing fitness: 100%|█████████████████████████| 7/7 [01:20<00:00, 10.13s/it]
+>>> history = nns.evolve(generations = 20)
+Evolving population: 100%|███████████████████| 20/20 [1:32:00<00:00, 73.22s/it]
+Computing fitness: 100%|███████████████████████| 11/11 [05:37<00:00, 22.52s/it]
 >>> 
 >>> history.fittest
-{'genome': {'optimizer': 'adam', 'hidden_activation': 'relu',
-'batch_size': 32, 'initializer': 'glorot_normal', 'input_dropout': 0.2,
-'neurons0': 256, 'dropout0': 0.0, 'neurons1': 128, 'dropout1': 0.1,
-'neurons2': 256, 'dropout2': 0.1, 'neurons3': 256, 'dropout3': 0.2,
-'neurons4': 128, 'dropout4': 0.4}, 'fitness': 0.9659}
+{'genome': {'optimizer': 'adamax', 'hidden_activation': 'relu',
+'batch_size': 32, 'initializer': 'glorot_uniform', 'input_dropout': 0.0,
+'neurons0': 256, 'dropout0': 0.3, 'neurons1': 512, 'dropout1': 0.3,
+'neurons2': 128, 'dropout2': 0.0, 'neurons3': 0, 'dropout3': 0.1,
+'neurons4': 1024, 'dropout4': 0.2}, 'fitness': 0.855400025844574}
 >>> 
 >>> history.plot(
 ...   title = "Validation accuracy by generation",
@@ -120,19 +120,19 @@ Computing fitness: 100%|██████████████████�
 ...   )
 ```
 
-![Plot showing fitness value (which is accuracy in this case) over 20 generations, converging to roughly asd96.50%.](https://filedn.com/lRBwPhPxgV74tO0rDoe8SpH/naturalselection_data/fashion_mnist_example.png)
+![Plot showing fitness value (which is accuracy in this case) over 20 generations](https://filedn.com/lRBwPhPxgV74tO0rDoe8SpH/naturalselection_data/fashion_mnist_example.png)
 
-We can then train the best performing model and save it locally:asd
+We can then train the best performing model and save it locally:
 
 ```python3
 >>> # Training the best model and saving it to fashion_mnist_model.h5
 >>> best_score = nns.train_best(file_name = 'fashion_mnist_model')
-Epoch 0, val_acc: 0.966: 100%|█████████| 60000/60000 [00:12<00:00, 1388.45it/s]
+Epoch 0 - val_acc: 0.853: 100%|█████████| 60000/60000 [00:21<00:00, 146.25it/s]
 (...)
-Epoch 19, val_acc: 0.982: 100%|████████| 60000/60000 [00:11<00:00, 1846.24it/s]
+Epoch 44 - val_acc: 0.900: 100%|████████| 60000/60000 [00:21<00:00, 284.68it/s]
 >>>
 >>> best_score
-0.982
+0.9029
 ```
 
 ## Algorithmic details
