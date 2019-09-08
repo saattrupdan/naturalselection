@@ -8,7 +8,7 @@ pairs = ns.Population(
     fitness_fn = lambda n: max(n.x - n.y, 0),
     )
 
-history = pairs.evolve(generations = 100)
+history = pairs.evolve(generations = 50)
 
 print(history.fittest)
 

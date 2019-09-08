@@ -28,8 +28,8 @@ Here is a toy example looking for a pair of numbers with large first coordinate 
 ...   fitness_fn = lambda n: max(n.x - n.y, 0)
 ...   )
 ...
->>> history = pairs.evolve(generations = 100)
-Evolving population: 100%|██████████████████| 100/100 [00:02<00:00,  35.76it/s]
+>>> history = pairs.evolve(generations = 50)
+Evolving population: 100%|████████████████████| 50/50 [00:01<00:00,  35.80it/s]
 >>>
 >>> history.fittest
 {'genome': {'x': 9999, 'y': 1}, 'fitness': 9998}
