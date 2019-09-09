@@ -295,10 +295,10 @@ class NNs(ns.Population):
         callbacks = [earlier_stopping]
         if self.progress_bars >= 3:
             if worker_idx:
-                desc = f'Worker {worker_idx % self.workers}, '
+                desc = f'Worker {(worker_idx - 1) % self.workers}, '
                 tqdm_callback = TQDMCallback(
                     show_outer = False, 
-                    inner_position = (worker_idx % self.workers) + 2,
+                    inner_position = ((worker_idx - 1) % self.workers) + 2,
                     leave_inner = False,
                     inner_description_update = desc + 'Epoch {epoch}',
                     inner_description_initial = desc + 'Epoch {epoch}'
