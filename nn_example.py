@@ -40,7 +40,7 @@ def evolve_nn(kind = 'mnist'):
     elif kind == 'cifar10':
         max_training_time = 120
     elif kind == 'cifar100':
-        max_training_time = 240
+        max_training_time = 360
     else:
         raise NameError(f'Dataset not recognised: {kind}')
 
@@ -54,7 +54,6 @@ def evolve_nn(kind = 'mnist'):
         output_activation = 'softmax',
         max_training_time = max_training_time,
         max_epochs = 1,
-        verbose = 2,
         )
 
     history = nns.evolve(generations = 20)

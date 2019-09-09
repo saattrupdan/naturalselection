@@ -127,7 +127,7 @@ class Organism():
             # If the gene values are numeric then choose the mutated gene
             # value following a normal distribution, otherwise a uniform one
             if issubclass(gene_vals.dtype.type, np.integer) or \
-               issubclass(gene_vals.dtype.typ, np.floating):
+               issubclass(gene_vals.dtype.type, np.floating):
 
                 # If gene values aren't sorted then sort them
                 if not np.all(gene_vals[:-1] <= gene_vals[1:]):
