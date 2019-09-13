@@ -31,18 +31,7 @@ def train_val_sets(kind = 'mnist'):
     Y_val = to_categorical(Y_val)
     return (X_train, Y_train, X_val, Y_val)
 
-def evolve_nn(kind = 'mnist'):
-
-    if kind == 'mnist':
-        max_training_time = 60
-    elif kind == 'fashion_mnist':
-        max_training_time = 120
-    elif kind == 'cifar10':
-        max_training_time = 120
-    elif kind == 'cifar100':
-        max_training_time = 360
-    else:
-        raise NameError(f'Dataset not recognised: {kind}')
+def evolve_nn(kind = 'mnist', verbose = 0):
 
     print(f"\n~~~ Now evolving {kind} ~~~")
 
@@ -52,8 +41,10 @@ def evolve_nn(kind = 'mnist'):
         loss_fn = 'categorical_crossentropy',
         score = 'accuracy',
         output_activation = 'softmax',
-        max_training_time = max_training_time,
-        max_epochs = 1,
+        max_epochs = 15,
+        max_training_time = 900, # a minute per epoch
+        patience = 0,
+        verbose = verbose,
         )
 
     history = nns.evolve(generations = 20)
@@ -69,11 +60,15 @@ def evolve_nn(kind = 'mnist'):
     best_score = nns.train_best()
     print("Best score:", best_score)
 
+    del nns
+    del history
+
 
 if __name__ == '__main__':
     from sys import argv
+    verbose = 1
     if len(argv) > 1:
         for arg in argv[1:]:
-            evolve_nn(arg)
+            evolve_nn(arg, verbose = verbose)
     else:
-        evolve_nn()
+        evolve_nn(verbose = verbose)

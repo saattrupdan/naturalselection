@@ -1,6 +1,7 @@
 import numpy as np
 import os
 from functools import partial 
+from itertools import product
 import logging
 from multiprocessing import cpu_count
 
@@ -13,49 +14,56 @@ class NN(ns.Genus):
         (int) max_nm_hidden_layers
         (bool) uniform_layers: whether all hidden layers should
                have the same amount of neurons and dropout
-        (iterable) input_dropout: values for input dropout
-        (iterable) : values for dropout after hidden layers
+        (iterable) : values for dropout before hidden layers
         (iterable) neurons_per_hidden_layer = neurons in hidden layers
-        (iterable) optimizer: keras optimizers
         (iterable) hidden_activation: keras activation functions
         (iterable) batch_size: batch sizes
         (iterable) initializer: keras initializers
         '''
-    def __init__(self, max_nm_hidden_layers = 5, uniform_layers = False,
-        input_dropout = np.arange(0, 0.6, 0.1),
-        hidden_dropout = np.arange(0, 0.6, 0.1),
-        neurons = np.array([2 ** n for n in range(4, 11)]),
-        optimizer = np.array(['adamax', 'adam', 'nadam']),
-        hidden_activation = np.array(['relu', 'elu']),
-        batch_size = np.array([2 ** n for n in range(4, 7)]),
-        initializer = np.array(['lecun_uniform', 'lecun_normal',
-                                'glorot_uniform', 'glorot_normal',
-                                'he_uniform', 'he_normal'])):
+    def __init__(self, max_nm_hidden_layers, uniform_layers, 
+        dropout, neurons, hidden_activation, batch_size,
+        initializer, learning_rate, fst_moment, snd_moment, decay,
+        nesterov):
 
-        self.optimizer = np.unique(np.asarray(optimizer))
         self.hidden_activation = np.unique(np.asarray(hidden_activation))
         self.batch_size = np.unique(np.asarray(batch_size))
         self.initializer = np.unique(np.asarray(initializer))
-        self.input_dropout = np.unique(np.asarray(input_dropout))
+        self.input_dropout = np.around(np.unique(np.append(dropout, 0)), 2)
 
+        learning_rate = np.unique(np.asarray(learning_rate))
+        decay = np.unique(np.append(decay, 0))
+        self.lr_and_decay = np.array(list(product(learning_rate, decay)))
+
+        self.snd_moment = np.unique(np.append(snd_moment, 0))
+        fst_moment = np.unique(np.append(fst_moment, 0))
+        self.fst_moment_and_nesterov = np.array(list((
+            (m, n) for (m, n) in product(fst_moment, nesterov)
+            if not (m == 0 and n)
+            )))
+
+        neurons = np.unique(np.append(neurons, 0))
+        dropouts = np.around(np.unique(np.append(dropout, 0)), 2)
         if uniform_layers:
-            self.neurons = np.unique(np.asarray(neurons))
-            self.dropout = np.unique(np.asarray(hidden_dropout))
+            self.neurons = neurons
+            self.dropout = dropouts
             self.nm_hidden_layers = \
                 np.arange(1, max_nm_hidden_layers + 1)
         else:
-            neurons = np.unique(np.append(neurons, 0))
-            dropout = np.around(np.unique(np.append(hidden_dropout, 0)), 2)
             layer_info = {}
-            for layer_idx in range(max_nm_hidden_layers):
-                layer_info["neurons{}".format(layer_idx)] = neurons
-                layer_info["dropout{}".format(layer_idx)] = dropout
+            for i in range(max_nm_hidden_layers):
+                layer_info[f'neurons_and_dropout{i}'] = np.array([
+                    (neuron, dropout)
+                    for (neuron, dropout) in product(neurons, dropouts)
+                    if not (neuron == 0 and dropout != 0)
+                    ])
+        
             self.__dict__.update(layer_info)
+
 
 class NNs(ns.Population):
     def __init__(self, 
         train_val_sets,
-        size = 50, 
+        size = 30, 
         initial_genome = None,
         breeding_rate = 0.8,
         mutation_rate = 0.2,
@@ -74,13 +82,25 @@ class NNs(ns.Population):
         min_change = 1e-4,
         max_training_time = None, 
         max_nm_hidden_layers = 5,
+        batch_norm = True,
         uniform_layers = False,
-        input_dropout = np.arange(0, 0.6, 0.1),
-        hidden_dropout = np.arange(0, 0.6, 0.1),
-        neurons = np.array([2 ** n for n in range(4, 11)]),
-        optimizer = np.array(['adamax', 'adam', 'nadam']),
-        hidden_activation = np.array(['relu', 'elu']),
-        batch_size = np.array([2 ** n for n in range(4, 7)]),
+        dropout = np.array([0.1, 0.2, 0.3, 0.4, 0.5]),
+        neurons = np.array([2 ** n for n in range(5, 11)]),
+        learning_rate = np.array([5, 2, 1,
+                                  5e-1, 2e-1, 1e-1, 5e-2, 2e-2, 1e-2,
+                                  5e-3, 2e-3, 1e-3, 5e-4, 2e-4, 1e-4,
+                                  5e-5, 2e-5, 1e-5, 5e-6, 2e-6, 1e-6]),
+        fst_moment = np.array([0.5, 0.8, 0.9, 0.95, 0.98, 0.99,
+                             0.995, 0.998, 0.999]),
+        snd_moment = np.array([0.5, 0.8, 0.9, 0.95, 0.98, 0.99, 
+                                  0.995, 0.998, 0.999]),
+        decay = np.array([5e-1, 2e-1, 1e-1, 5e-2, 2e-2, 1e-2,
+                          5e-3, 2e-3, 1e-3, 5e-4, 2e-4, 1e-4,
+                          5e-5, 2e-5, 1e-5, 5e-6, 2e-6, 1e-6]),
+        nesterov = np.array([0, 1]),
+        hidden_activation = np.array(['relu', 'elu', 'softplus',
+                                      'leaky_relu']),
+        batch_size = np.array([32]),
         initializer = np.array(['lecun_uniform', 'lecun_normal',
                                 'glorot_uniform', 'glorot_normal',
                                 'he_uniform', 'he_normal']),
@@ -107,14 +127,18 @@ class NNs(ns.Population):
         self.max_training_time    = max_training_time
         self.max_nm_hidden_layers = max_nm_hidden_layers
         self.uniform_layers       = uniform_layers
-        self.input_dropout        = input_dropout
-        self.hidden_dropout       = hidden_dropout
+        self.dropout              = dropout
         self.neurons              = neurons
-        self.optimizer            = optimizer
         self.hidden_activation    = hidden_activation
         self.batch_size           = batch_size
         self.initializer          = initializer
         self.verbose              = verbose
+        self.learning_rate        = learning_rate
+        self.fst_moment           = fst_moment
+        self.snd_moment           = snd_moment
+        self.decay                = decay
+        self.nesterov             = nesterov
+        self.batch_norm           = batch_norm
 
         logging.basicConfig(format = '%(levelname)s: %(message)s')
         self.logger = logging.getLogger()
@@ -135,13 +159,16 @@ class NNs(ns.Population):
         self.genus = NN(
             max_nm_hidden_layers = self.max_nm_hidden_layers,
             uniform_layers       = self.uniform_layers,
-            input_dropout        = self.input_dropout,
-            hidden_dropout       = self.hidden_dropout,
+            dropout              = self.dropout,
             neurons              = self.neurons,
-            optimizer            = self.optimizer,
             hidden_activation    = self.hidden_activation,
             batch_size           = self.batch_size,
-            initializer          = self.initializer
+            initializer          = self.initializer,
+            learning_rate        = self.learning_rate,
+            fst_moment           = self.fst_moment,
+            snd_moment           = self.snd_moment,
+            decay                = self.decay,
+            nesterov             = self.nesterov
             )
 
         self.fitness_fn = partial(
@@ -154,22 +181,24 @@ class NNs(ns.Population):
             )
 
         # If user has supplied an initial genome then construct a population
-        # which is very similar to that
-        if initial_genome:
+        # which is very similar to that, and if not then start with a shallow
+        # network
+        if not initial_genome:
+            initial_genome = {}
+            for i in range(self.max_nm_hidden_layers):
+                initial_genome[f'neurons_and_dropout{i}'] = (0, 0)
 
-            # Create a population of organisms all with the initial genome
-            self.population = np.array([
-                ns.Organism(self.genus, **initial_genome)
-                for _ in range(size)
-                ])
+        # Create a population of organisms all with the initial genome
+        self.population = np.array([
+            ns.Organism(self.genus, **initial_genome)
+            for _ in range(size)
+            ])
 
-            # Mutate 80% of the population
-            rnd = np.random.random(self.population.shape)
-            for (i, org) in enumerate(self.population):
-                if rnd[i] > 0.2:
-                    org.mutate()
-        else:
-            self.population = self.genus.create_organisms(size)
+        # Mutate 50% of the genes in 80% of the population
+        rnd = np.random.random(self.population.shape)
+        for (i, org) in enumerate(self.population):
+            if rnd[i] < 0.80:
+                org.mutate(mutation_factor = .50)
 
         # We do not have access to fitness values yet, so choose the 'fittest
         # organism' to just be a random one
@@ -213,6 +242,7 @@ class NNs(ns.Population):
 
         from tensorflow.keras.models import Model
         from tensorflow.keras.layers import Input, Dense, Dropout
+        from tensorflow.keras.optimizers import SGD, Adam, Nadam, RMSprop
         from tensorflow.keras import backend as K
         from tensorflow.python.util import deprecation
         from tensorflow import set_random_seed
@@ -240,31 +270,48 @@ class NNs(ns.Population):
             self.nm_labels = Y_val.shape[1]
 
         inputs = Input(shape = (self.nm_features,))
-        x = Dropout(nn.input_dropout)(inputs)
+        x = inputs
+    
+        if nn.input_dropout:
+            x = Dropout(nn.input_dropout)(x)
 
         if self.uniform_layers:
             for _ in range(nn.nm_hidden_layers):
                 x = Dense(nn.neurons, activation = nn.hidden_activation,
                     kernel_initializer = nn.initializer)(x)
-                x = Dropout(nn.dropout)(x)
+                if nn.dropout:
+                    x = Dropout(nn.dropout)(x)
         else:
-            for i in count():
-                try:
-                    neurons = nn.__dict__["neurons{}".format(i)]
-                    if neurons:
-                        x = Dense(neurons, activation = nn.hidden_activation,
-                            kernel_initializer = nn.initializer)(x)
-                    dropout = nn.__dict__["dropout{}".format(i)]
-                    if dropout:
-                        x = Dropout(dropout)(x)
-                except:
-                    break
+            for i in range(self.max_nm_hidden_layers):
+                (neurons, dropout) = nn.__dict__\
+                    ["neurons_and_dropout{}".format(i)]
+                if neurons:
+                    x = Dense(neurons, activation = nn.hidden_activation,
+                        kernel_initializer = nn.initializer)(x)
+                if dropout:
+                    x = Dropout(dropout)(x)
 
         outputs = Dense(self.nm_labels,
             activation = self.output_activation,
             kernel_initializer = nn.initializer)(x)
 
         model = Model(inputs = inputs, outputs = outputs)
+
+        learning_rate, decay = nn.lr_and_decay
+        fst_moment, nesterov = nn.fst_moment_and_nesterov
+        if fst_moment and nn.snd_moment:
+            if nesterov:
+                optimizer = Nadam(lr = learning_rate, schedule_decay = decay,
+                    beta_1 = fst_moment, beta_2 = nn.snd_moment)
+            else:
+                optimizer = Adam(lr = learning_rate, decay = decay,
+                    beta_1 = fst_moment, beta_2 = nn.snd_moment)
+        elif nn.snd_moment:
+            optimizer = RMSprop(lr = learning_rate, decay = decay,
+                rho = nn.snd_moment)
+        else:
+            optimizer = SGD(lr = learning_rate, decay = decay,
+                momentum = fst_moment, nesterov = nesterov)
 
         if self.score == 'accuracy':
             metrics = ['accuracy']        
@@ -275,7 +322,7 @@ class NNs(ns.Population):
 
         model.compile(
             loss = self.loss_fn,
-            optimizer = nn.optimizer,
+            optimizer = optimizer,
             metrics = metrics
             )
 
@@ -345,10 +392,10 @@ class NNs(ns.Population):
         else:
             # Custom scoring function
             fitness = self.score(Y_val, Y_hat)
-        
+
         # Clear tensorflow session to avoid memory leak
         K.clear_session()
-        
+
         return fitness
 
 

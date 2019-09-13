@@ -70,7 +70,7 @@ class Organism():
         for key in genus.__dict__.keys() - genome.keys():
             val_idx = np.random.choice(range(genus.__dict__[key].shape[0]))
             genome[key] = genus.__dict__[key][val_idx]
-
+        
         self.__dict__.update(genome)
         self.genus = genus
         self.fitness = 0
@@ -108,7 +108,13 @@ class Organism():
                               a given gene is changed. Defaults to 1/k, where
                               k is the size of the population
         '''
-        keys = np.asarray(list(self.get_genome().keys()))
+
+        # Get keys that have more than one possible gene value
+        all_keys = self.get_genome().keys()
+        keys = np.array(
+            [k for k in all_keys if self.genus.__dict__[k].size > 1]
+            )
+
         if mutation_factor == 'default':
             mutation_factor = np.divide(1, keys.size)
 
@@ -123,37 +129,95 @@ class Organism():
             # possible gene values for that gene
             gene_vals = self.genus.__dict__[key]
             gene_type = gene_vals.dtype.type
-
+            
             # If the gene values are numeric then choose the mutated gene
             # value following a normal distribution, otherwise a uniform one
             if issubclass(gene_vals.dtype.type, np.integer) or \
                issubclass(gene_vals.dtype.type, np.floating):
-
-                # If gene values aren't sorted then sort them
-                if not np.all(gene_vals[:-1] <= gene_vals[1:]):
-                    gene_vals = np.sort(gene_vals, axis = 0)
-
-                # Find the index of the current gene value
-                gene_idx = np.where(gene_vals == self.get_genome()[key])[0][0]
-
-                # Set a standard deviation to be 1% of the size of the above
-                # array, or 1, whichever is larger
-                scale = max(np.around(gene_vals.size / 100, 0).astype(int), 1)
-
+                
                 # Get a new index for a gene value for the given gene, taken
                 # from a normal distribution centered on gene_idx and with
                 # the above standard deviation
-                rnd_idx = gene_idx
-                while rnd_idx == gene_idx:
-                    rnd_idx = np.random.normal(loc = gene_idx, scale = scale)
-                    rnd_idx = np.around(rnd_idx, 0).astype(int)
-                    rnd_idx = max(rnd_idx, 0)
-                    rnd_idx = min(rnd_idx, gene_vals.size - 1)
+                if len(gene_vals.shape) == 1:
+
+                    # Sort them to make the normal distribution more effective
+                    sorted_genes = np.sort(gene_vals)
+        
+                    # Find the index of the current gene value
+                    gene_idx = np.where(
+                        sorted_genes == self.get_genome()[key])
+                    gene_idx = gene_idx[0][0]
+
+                    # Set a standard deviation to be 50% of the size of 
+                    # the above array, or 1, whichever is larger
+                    scale = np.around(sorted_genes.shape[0] / 2, 0)
+                    scale = scale.astype(int)
+                    scale = max(scale, 1)
+
+                    rnd_idx = gene_idx
+                    while rnd_idx == gene_idx and sorted_genes.size != 1:
+                        rnd_idx = np.random.normal(
+                            loc = gene_idx, 
+                            scale = scale
+                            )
+                        rnd_idx = np.around(rnd_idx, 0)
+                        rnd_idx = abs(rnd_idx)
+                        rnd_idx = min(rnd_idx, len(sorted_genes) - 1)
+                        rnd_idx = int(rnd_idx)
+
+                    # Save the new gene value
+                    mut_dict[key] = sorted_genes[rnd_idx]
+
+                else:
+                    dim = gene_vals.shape[1]
+
+                    gene_val_arr = []
+                    gene_idx = np.empty(dim)
+                    scales = np.empty(dim)
+                    for i in range(dim):
+                        gene_val_arr.append(np.unique(gene_vals[:, i]))
+                        gene_val_arr[-1] = np.sort(gene_val_arr[-1])
+                        gene_idx[i] = np.where(gene_val_arr[i] == 
+                            self.get_genome()[key][i])[0][0]
+                        scales[i] = max(gene_val_arr[i].shape[0] / 2, 1)
+
+                    def eligible(idx):
+                        ''' Check if idx indexes a valid gene value. '''
+                        gene_val = np.empty(dim)
+                        for i in range(dim):
+                            gene_val[i] = gene_val_arr[i][idx[i]]
+                        arr = np.array([i for i in range(gene_vals.shape[0])
+                            if (gene_vals[i,:] == np.asarray(gene_val)).all()])
+                        return arr.size > 0
+
+                    rnd_idx = gene_idx
+                    while (np.array(rnd_idx) == np.array(gene_idx)).all() \
+                        or not eligible(rnd_idx):
+
+                        cov = np.zeros((dim, dim))
+                        for i in range(dim):
+                            cov[i,i] = scales[i]
+                        rnd_idx = np.random.multivariate_normal(
+                            mean = gene_idx, 
+                            cov = cov
+                            )
+                        rnd_idx = np.around(rnd_idx, 0)
+                        rnd_idx = np.absolute(rnd_idx)
+                        for i in range(dim):
+                            rnd_idx[i] = np.minimum(rnd_idx[i], 
+                                len(gene_val_arr[i]) - 1)
+                        rnd_idx = rnd_idx.astype(int)
+
+                    # Save the new gene value
+                    rnd_val = np.empty(dim)
+                    for i in range(dim):
+                        rnd_val[i] = gene_val_arr[i][rnd_idx[i]]
+                    mut_dict[key] = tuple(rnd_val)
+
             else:
                 rnd_idx = np.random.choice(range(gene_vals.size))
-
-            # Save the new one gene value
-            mut_dict[key] = gene_vals[rnd_idx]
+                # Save the new gene value
+                mut_dict[key] = gene_vals[rnd_idx]
 
         # Replace the old gene values by the new ones
         self.__dict__.update(mut_dict)
@@ -467,8 +531,23 @@ class Population():
                 if history.memory == 'inf' or history.memory > gen:
                     history.memory = gen
 
+                if verbose == 2:
+                    if self.progress_bars:
+                        print("")
+                    if self.progress_bars >= 2:
+                        print("")
                 self.logger.info('Reached goal, stopping evolution...')
                 break
+
+            if verbose == 2:
+                if self.progress_bars:
+                    print("")
+                if self.progress_bars >= 2:
+                    print("")
+            self.logger.debug("Current population, of size {}:"\
+                .format(self.population.size))
+            self.logger.debug(np.array([(org.get_genome(), org.fitness)
+                for org in self.population]))
 
             # Compute and update fitness values
             self.update_fitness(history = history)
@@ -480,11 +559,12 @@ class Population():
             if max(fitnesses) > self.fittest.fitness:
                 self.fittest = self.population[np.argmax(fitnesses)]
 
+            self.logger.debug("Current population with fitness values:")
+            self.logger.debug(np.array([(org.get_genome(), org.fitness)
+                for org in self.population]))
+
             # Store current population in history
             history.add_entry(self, generation = gen)
-
-            self.logger.debug("Fitness values: {}"\
-                .format(np.around(fitnesses, 2)))
 
             # Select elites 
             elites_amt = np.ceil(self.size * self.elitism_rate).astype(int)
@@ -493,7 +573,7 @@ class Population():
 
                 self.logger.debug("Elite pool, of size {}:"\
                     .format(elites_amt))
-                self.logger.debug(np.array([org.get_genome()
+                self.logger.debug(np.array([(org.get_genome(), org.fitness)
                     for org in elites]))
 
             # Select breeders
@@ -503,7 +583,8 @@ class Population():
 
             self.logger.debug("Breeding pool, of size {}:"\
                 .format(breeders_amt))
-            self.logger.debug(np.array([org.get_genome() for org in breeders]))
+            self.logger.debug(np.array([(org.get_genome(), org.fitness)
+                for org in breeders]))
             self.logger.debug("Breeding...")
 
             # Breed until we reach the same size
@@ -518,8 +599,8 @@ class Population():
 
             self.logger.debug("Mutation pool, of size {}:"\
                 .format(children[mutators].size))
-            self.logger.debug(np.array([child.get_genome() for child in
-                children[mutators]]))
+            self.logger.debug(np.array([(child.get_genome(), child.fitness)
+                for child in children[mutators]]))
             self.logger.debug("Mutating...")
 
             # Mutate the children
@@ -534,12 +615,18 @@ class Population():
             
             self.logger.debug("New population, of size {}:"\
                 .format(self.population.size))
-            self.logger.debug(self.get_genomes())
-            self.logger.debug("Median: {}".format(np.median(fitnesses)))
-            self.logger.debug("IQR: {}".format(
-                np.percentile(fitnesses, 75) - np.percentile(fitnesses, 25)))
+            self.logger.debug(np.array([(org.get_genome(), org.fitness)
+                for org in self.population]))
 
-            self.logger.info("Fittest so far, with fitness {}:"\
+            if verbose == 1:
+                if self.progress_bars:
+                    print("")
+                if self.progress_bars >= 2:
+                    print("")
+            self.logger.info("Median: {}".format(np.median(fitnesses)))
+            self.logger.info("IQR: {}".format(
+                np.percentile(fitnesses, 75) - np.percentile(fitnesses, 25)))
+            self.logger.info("Fittest, with fitness {}:"\
                 .format(self.fittest.fitness))
             self.logger.info(self.fittest.get_genome())
 
@@ -601,7 +688,7 @@ class History():
 
     def plot(self, title = 'Fitness by generation', xlabel = 'Generation',
         ylabel = 'Fitness', file_name = None, show_plot = True,
-        show_max = False, only_show_max = False, show_min = False,
+        show_max = True, only_show_max = False, show_min = False,
         show_minmax_area = False, show_quartile_area = True,
         show_lower_quartile = False, show_upper_quartile = False,
         show_median = True, legend = True, legend_location = 'lower right',
@@ -615,7 +702,7 @@ class History():
             (string) file_name = None: file name to save the plot to
             (bool) show_plot = True: show plot as a pop-up
             (bool) show_median = True: show a median value line on plot
-            (bool) show_max = False: show a maximum value line on plot
+            (bool) show_max = True: show a maximum value line on plot
             (bool) show_min = False: show a minimum value line on plot
             (bool) show_lower_quartile = False: show a lower quartile
                    value line on plot
