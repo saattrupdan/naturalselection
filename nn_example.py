@@ -1,12 +1,15 @@
 import naturalselection as ns
 
-def image_preprocessing(X):
+def image_preprocessing(X, normalisation = 'normal'):
     ''' Basic normalisation and scaling preprocessing. '''
     import numpy as np
     X = X.reshape((-1, np.prod(X.shape[1:])))
     X = X.astype('float32')
-    X = (X - X.min()) / (X.max() - X.min())
-    X -= X.mean(axis = 0)
+    if normalisation == 'normal':
+        X = (X - X.mean(axis = 0)) / X.std(axis = 0)
+    elif normalisation == 'minmax':
+        X = (X - X.min()) / (X.max() - X.min())
+        X -= X.mean(axis = 0)
     return X
 
 def train_val_sets(kind = 'mnist'):
