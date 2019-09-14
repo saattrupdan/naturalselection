@@ -177,8 +177,13 @@ class NNs(ns.Population):
         # which is very similar to that, and if not then start with a shallow
         # network
         if not 'lr_and_decay' in initial_genome.keys():
+            # Start with a large learning rate, following the advice in
+            # Bengio's "Practical recommendations for gradient-based training
+            # of deep architectures". I start with second highest to allow 
+            # mutation options in both directions
+            penultimate_lr = np.partition(learning_rate, -2)[-2]
             initial_genome = {
-                'lr_and_decay': np.array((1., 0.))
+                'lr_and_decay': np.array((penultimate_lr, 0.))
                 }
         for i in range(self.max_nm_hidden_layers):
             if not f'neurons_and_dropout{i}' in initial_genome.keys():
