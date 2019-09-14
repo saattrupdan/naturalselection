@@ -63,14 +63,29 @@ class Organism():
 
     def __init__(self, genus, **genome):
 
+        def in_arr(val, arr):
+            ''' Check if value occurs as a row in a 1d or 2d array. '''
+
+            if np.asarray(val).size == 1:
+                return val in arr
+            else:
+                results = (True for i in range(arr.shape[0]) 
+                                if (arr[i, :] == np.asarray(val)).all())
+                try:
+                    result = next(results)
+                except StopIteration:
+                    result = False
+                return result
+
         # Check that the input parameters match with the genus type,
         # and if any parameters are missing then add random values
         genome = {key: val for (key, val) in genome.items() if key in
-            genus.__dict__.keys() and val in genus.__dict__[key]}
+            genus.__dict__.keys() and in_arr(val, genus.__dict__[key])}
+
         for key in genus.__dict__.keys() - genome.keys():
             val_idx = np.random.choice(range(genus.__dict__[key].shape[0]))
             genome[key] = genus.__dict__[key][val_idx]
-        
+
         self.__dict__.update(genome)
         self.genus = genus
         self.fitness = 0
@@ -132,8 +147,8 @@ class Organism():
             
             # If the gene values are numeric then choose the mutated gene
             # value following a normal distribution, otherwise a uniform one
-            if issubclass(gene_vals.dtype.type, np.integer) or \
-               issubclass(gene_vals.dtype.type, np.floating):
+            if issubclass(gene_type, np.integer) or \
+               issubclass(gene_type, np.floating):
                 
                 # Get a new index for a gene value for the given gene, taken
                 # from a normal distribution centered on gene_idx and with
@@ -148,8 +163,7 @@ class Organism():
                         sorted_genes == self.get_genome()[key])
                     gene_idx = gene_idx[0][0]
 
-                    # Set a standard deviation to be 50% of the size of 
-                    # the above array, or 1, whichever is larger
+                    # Set a standard deviation
                     scale = np.around(sorted_genes.shape[0] / 2, 0)
                     scale = scale.astype(int)
                     scale = max(scale, 1)
@@ -176,19 +190,41 @@ class Organism():
                     scales = np.empty(dim)
                     for i in range(dim):
                         gene_val_arr.append(np.unique(gene_vals[:, i]))
-                        gene_val_arr[-1] = np.sort(gene_val_arr[-1])
+                        gene_val_arr[i] = np.sort(gene_val_arr[i])
                         gene_idx[i] = np.where(gene_val_arr[i] == 
                             self.get_genome()[key][i])[0][0]
                         scales[i] = max(gene_val_arr[i].shape[0] / 2, 1)
 
                     def eligible(idx):
                         ''' Check if idx indexes a valid gene value. '''
-                        gene_val = np.empty(dim)
+                        gene_val = np.array([gene_val_arr[i][idx[i]]
+                            for i in range(dim)])
+                        results = (True for i in range(gene_vals.shape[0])
+                            if (gene_vals[i, :] == gene_val).all())
+                        try:
+                            result = next(results)
+                        except StopIteration:
+                            result = False
+                        return result
+
+                    for _ in range(10):
+                        cov = np.zeros((dim, dim))
                         for i in range(dim):
-                            gene_val[i] = gene_val_arr[i][idx[i]]
-                        arr = np.array([i for i in range(gene_vals.shape[0])
-                            if (gene_vals[i,:] == np.asarray(gene_val)).all()])
-                        return arr.size > 0
+                            cov[i,i] = scales[i]
+                        rnd_idx = np.random.multivariate_normal(
+                            mean = gene_idx, 
+                            cov = cov
+                            )
+                        rnd_idx = np.around(rnd_idx, 0)
+                        rnd_idx = np.absolute(rnd_idx)
+                        for i in range(dim):
+                            rnd_idx[i] = np.minimum(rnd_idx[i], 
+                                len(gene_val_arr[i]) - 1)
+                        rnd_idx = rnd_idx.astype(int)
+
+                        rnd_val = np.empty(dim)
+                        for i in range(dim):
+                            rnd_val[i] = gene_val_arr[i][rnd_idx[i]]
 
                     rnd_idx = gene_idx
                     while (np.array(rnd_idx) == np.array(gene_idx)).all() \
@@ -212,7 +248,7 @@ class Organism():
                     rnd_val = np.empty(dim)
                     for i in range(dim):
                         rnd_val[i] = gene_val_arr[i][rnd_idx[i]]
-                    mut_dict[key] = tuple(rnd_val)
+                    mut_dict[key] = rnd_val
 
             else:
                 rnd_idx = np.random.choice(range(gene_vals.size))
@@ -531,7 +567,7 @@ class Population():
                 if history.memory == 'inf' or history.memory > gen:
                     history.memory = gen
 
-                if verbose == 2:
+                if self.verbose == 2:
                     if self.progress_bars:
                         print("")
                     if self.progress_bars >= 2:
@@ -539,7 +575,7 @@ class Population():
                 self.logger.info('Reached goal, stopping evolution...')
                 break
 
-            if verbose == 2:
+            if self.verbose == 2:
                 if self.progress_bars:
                     print("")
                 if self.progress_bars >= 2:
@@ -618,7 +654,7 @@ class Population():
             self.logger.debug(np.array([(org.get_genome(), org.fitness)
                 for org in self.population]))
 
-            if verbose == 1:
+            if self.verbose == 1:
                 if self.progress_bars:
                     print("")
                 if self.progress_bars >= 2:

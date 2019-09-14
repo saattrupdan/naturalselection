@@ -154,34 +154,46 @@ class EarlierStopping(EarlyStopping):
     Source: https://github.com/keras-team/keras-contrib/issues/87
 
     INPUT
-        (int) seconds: maximum time before stopping.
+        (int) max_training_time: maximum time before stopping.
+        (int) max_epoch_time: maximum time per epoch before stopping.
         (int) verbose: verbosity mode.
     '''
-    def __init__(self, seconds = None, **kwargs):
+    def __init__(self, max_training_time = None, max_epoch_time = None, 
+        **kwargs):
         super().__init__(**kwargs)
         self.start_time = 0
-        self.seconds = seconds
+        self.epoch_start_time = 0
+        self.max_training_time = max_training_time
+        self.max_epoch_time = max_epoch_time
 
     def on_train_begin(self, logs = {}):
         self.start_time = time.time()
         super().on_train_begin(logs)
+    
+    def on_epoch_begin(self, epoch, logs = {}):
+        self.epoch_start_time = time.time()
+        super().on_epoch_begin(epoch, logs)
 
     def on_batch_end(self, batch, logs = {}):
-        if self.seconds and time.time()-self.start_time > self.seconds:
+        tot_time = time.time() - self.start_time
+        epoch_time = time.time() - self.epoch_start_time
+        if (self.max_training_time and tot_time > self.max_training_time) \
+            or (self.max_epoch_time and epoch_time > self.max_epoch_time):
             self.model.stop_training = True
             if self.verbose:
                 print('Stopping after {} seconds.'\
-                    .format(self.seconds))
+                    .format(tot_time))
         super().on_batch_end(batch, logs)
 
     def on_epoch_end(self, epoch, logs = {}):
-        if self.seconds and time.time()-self.start_time > self.seconds:
+        tot_time = time.time() - self.start_time
+        if self.max_training_time and tot_time > self.max_training_time:
             self.model.stop_training = True
             if self.restore_best_weights and self.best_weights:
                 self.model.set_weights(self.best_weights) 
             if self.verbose:
                 print('Stopping after {} seconds.'.\
-                    format(self.seconds))
+                    format(tot_time))
 
         # Call earlystopping if we're beyond the first epoch
         if logs.get(self.monitor):

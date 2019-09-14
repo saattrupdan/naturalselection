@@ -31,27 +31,28 @@ def train_val_sets(kind = 'mnist'):
     Y_val = to_categorical(Y_val)
     return (X_train, Y_train, X_val, Y_val)
 
-def evolve_nn(kind = 'mnist', verbose = 0):
+def evolve_nn(kind = 'mnist', pop_size = 50, gens = 30, max_epochs = 10,
+    max_epoch_time = 90, verbose = 0):
 
     print(f"\n~~~ Now evolving {kind} ~~~")
 
     nns = ns.NNs(
-        size = 20,
+        size = pop_size,
         train_val_sets = train_val_sets(kind),
         loss_fn = 'categorical_crossentropy',
         score = 'accuracy',
         output_activation = 'softmax',
-        max_epochs = 15,
-        max_training_time = 900, # a minute per epoch
+        max_epochs = max_epochs,
+        max_epoch_time = max_epoch_time,
         patience = 0,
-        verbose = verbose,
+        verbose = verbose
         )
 
-    history = nns.evolve(generations = 20)
+    history = nns.evolve(generations = gens)
     print("Best overall genome:", history.fittest)
 
     history.plot(
-        title = "Validation accuracy by generation",
+        title = f"Evolution of {kind}",
         ylabel = "Validation accuracy",
         show_plot = False,
         file_name = f'{kind}_plot.png'
@@ -60,15 +61,21 @@ def evolve_nn(kind = 'mnist', verbose = 0):
     best_score = nns.train_best()
     print("Best score:", best_score)
 
-    del nns
-    del history
-
 
 if __name__ == '__main__':
     from sys import argv
+
+    pop_size = 50
+    gens = 30
+    max_epochs = 10
+    max_epoch_time = 90
     verbose = 1
+
     if len(argv) > 1:
         for arg in argv[1:]:
-            evolve_nn(arg, verbose = verbose)
+            evolve_nn(arg, pop_size = pop_size, gens = gens, 
+                max_epochs = max_epochs, max_epoch_time = max_epoch_time,
+                verbose = verbose)
     else:
-        evolve_nn(verbose = verbose)
+        evolve_nn(pop_size = pop_size, gens = gens, max_epochs = max_epochs,
+            max_epoch_time = max_epoch_time, verbose = verbose)
