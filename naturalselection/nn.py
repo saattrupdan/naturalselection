@@ -11,7 +11,7 @@ class NN(ns.Genus):
     ''' Feedforward fully connected neural network genus.
 
     INPUT:
-        (int) max_nm_hidden_layers
+        (int) max_nm_dense_layers
         (bool) uniform_layers: whether all hidden layers should
                have the same amount of neurons and dropout
         (iterable) : values for dropout before hidden layers
@@ -19,14 +19,14 @@ class NN(ns.Genus):
         (iterable) hidden_activation: keras activation functions
         (iterable) batch_size: batch sizes
         '''
-    def __init__(self, max_nm_hidden_layers, uniform_layers, 
-        dropout, neurons, hidden_activation, batch_size,
-        learning_rate, fst_moment, snd_moment, decay,
-        nesterov):
+    def __init__(self, max_nm_dense_layers, max_nm_conv_layers,
+        uniform_layers, dropout, neurons, hidden_activation, batch_size,
+        learning_rate, fst_moment, snd_moment, decay, nesterov,
+        filters, kernels, maxpool):
 
         self.hidden_activation = np.unique(np.asarray(hidden_activation))
         self.batch_size = np.unique(np.asarray(batch_size))
-        self.input_dropout = np.around(np.unique(np.append(dropout, 0)), 2)
+        self.initial_dropout = np.around(np.unique(np.append(dropout, 0)), 2)
 
         learning_rate = np.unique(np.append(learning_rate, 1))
         decay = np.unique(np.append(decay, 0))
@@ -41,18 +41,30 @@ class NN(ns.Genus):
 
         neurons = np.unique(np.append(neurons, 0))
         dropouts = np.around(np.unique(np.append(dropout, 0)), 2)
+        filters = np.unique(np.unique(np.append(filters, 0)))
+        kernels = np.unique(np.unique(np.append(kernels, 3)))
+        maxpool = np.unique(np.unique(np.append(maxpool, 0)))
         if uniform_layers:
             self.neurons = neurons
             self.dropout = dropouts
-            self.nm_hidden_layers = \
-                np.arange(1, max_nm_hidden_layers + 1)
+            self.filters = filters
+            self.kernels = kernels
+            self.maxpool = maxpool
+            self.nm_dense_layers = np.arange(0, max_nm_dense_layers + 1)
+            self.nm_conv_layers = np.arange(0, max_nm_conv_layers + 1)
         else:
             layer_info = {}
-            for i in range(max_nm_hidden_layers):
+
+            for i in range(max_nm_conv_layers):
+                layer_info[f'filters_kernel_maxpool{i}'] = np.array([
+                    (f, k, m) for (f, k, m) in product(filters, kernels, 
+                    maxpool) if not (f == 0 and (m != 0 or k != 3))
+                    ])
+
+            for i in range(max_nm_dense_layers):
                 layer_info[f'neurons_and_dropout{i}'] = np.array([
-                    (neuron, dropout)
-                    for (neuron, dropout) in product(neurons, dropouts)
-                    if not (neuron == 0 and dropout != 0)
+                    (n, d) for (n, d) in product(neurons, dropouts)
+                    if not (n == 0 and d != 0)
                     ])
 
             self.__dict__.update(layer_info)
@@ -64,17 +76,15 @@ class NNs(ns.Population):
         size = 20, 
         initial_genome = {},
         breeding_rate = 0.8,
-        mutation_rate = 0.3,
+        mutation_rate = 0.2,
         mutation_factor = 'default',
         elitism_rate = 0.1,
         multiprocessing = True,
         workers = cpu_count(),
         progress_bars = 3,
         loss_fn = 'binary_crossentropy',
-        nm_features = 'infer', 
-        nm_labels = 'infer',
         score = 'accuracy', 
-        pre_sample_fn = 'infer',
+        backend_fn = 'infer',
         output_activation = 'sigmoid',
         max_epochs = 10, 
         patience = 0, 
@@ -82,11 +92,15 @@ class NNs(ns.Population):
         min_change = 1e-4,
         max_training_time = None, 
         max_epoch_time = None, 
-        max_nm_hidden_layers = 5,
+        max_nm_conv_layers = 5,
+        max_nm_dense_layers = 5,
         batch_norm = True,
         uniform_layers = False,
+        neurons = np.array([32, 64, 128, 256, 512, 1024]),
         dropout = np.array([0.1, 0.2, 0.3, 0.4, 0.5]),
-        neurons = np.array([2 ** n for n in range(5, 11)]),
+        filters = np.array([2, 4, 8, 16, 32, 64, 128]),
+        kernels = np.array([1, 3, 5, 7]),
+        maxpool = np.array([0, 1]),
         learning_rate = np.array([5e-1, 2e-1, 1e-1, 5e-2, 2e-2, 1e-2, 
                                   5e-3, 2e-3, 1e-3, 5e-4, 2e-4, 1e-4]),
         fst_moment = np.array([0.5, 0.8, 0.9, 0.95, 0.98, 0.99,
@@ -112,8 +126,6 @@ class NNs(ns.Population):
         self.workers              = workers
         self.progress_bars        = progress_bars
         self.loss_fn              = loss_fn
-        self.nm_features          = nm_features
-        self.nm_labels            = nm_labels
         self.score                = score
         self.output_activation    = output_activation
         self.max_epochs           = max_epochs 
@@ -121,7 +133,8 @@ class NNs(ns.Population):
         self.min_change           = min_change
         self.max_training_time    = max_training_time
         self.max_epoch_time       = max_epoch_time
-        self.max_nm_hidden_layers = max_nm_hidden_layers
+        self.max_nm_dense_layers  = max_nm_dense_layers
+        self.max_nm_conv_layers   = max_nm_conv_layers
         self.uniform_layers       = uniform_layers
         self.dropout              = dropout
         self.neurons              = neurons
@@ -134,10 +147,16 @@ class NNs(ns.Population):
         self.decay                = decay
         self.nesterov             = nesterov
         self.batch_norm           = batch_norm
-        self.pre_sample_fn = pre_sample_fn
+        self.backend_fn           = backend_fn
         self.baseline             = baseline
+        self.filters              = filters
+        self.kernels              = kernels
+        self.maxpool              = maxpool
 
-        if self.pre_sample_fn == 'infer':
+        if len(self.train_val_sets[0].shape) == 2:
+            self.max_nm_conv_layers = 0
+
+        if self.backend_fn == 'infer':
             zero_one_metrics = ['accuracy', 'categorical_accuracy',
                                 'sparse_categorical_accuracy',
                                 'top_k_categorical_accuracy',
@@ -145,9 +164,9 @@ class NNs(ns.Population):
                                 'f1', 'precision', 'recall']
 
             if score in zero_one_metrics:
-                self.pre_sample_fn = lambda x: x ** 2
+                self.backend_fn = lambda x: x ** 2
             else:
-                self.pre_sample_fn = None
+                self.backend_fn = None
 
         logging.basicConfig(format = '%(levelname)s: %(message)s')
         self.logger = logging.getLogger()
@@ -166,10 +185,14 @@ class NNs(ns.Population):
         self.memory = 'inf'
         
         self.genus = NN(
-            max_nm_hidden_layers = self.max_nm_hidden_layers,
+            max_nm_dense_layers  = self.max_nm_dense_layers,
+            max_nm_conv_layers   = self.max_nm_conv_layers,
             uniform_layers       = self.uniform_layers,
             dropout              = self.dropout,
             neurons              = self.neurons,
+            filters              = self.filters,
+            kernels              = self.kernels,
+            maxpool              = self.maxpool,
             hidden_activation    = self.hidden_activation,
             batch_size           = self.batch_size,
             learning_rate        = self.learning_rate,
@@ -201,9 +224,15 @@ class NNs(ns.Population):
             initial_genome = {
                 'lr_and_decay': np.array((large_lr, 0.)),
                 }
-        for i in range(self.max_nm_hidden_layers):
+
+        for i in range(self.max_nm_conv_layers):
+            if not f'filters_kernel_maxpool{i}' in initial_genome.keys():
+                initial_genome[f'filters_kernel_maxpool{i}'] = \
+                np.array((0, 3, 0))
+
+        for i in range(self.max_nm_dense_layers):
             if not f'neurons_and_dropout{i}' in initial_genome.keys():
-                initial_genome[f'neurons_and_dropout{i}'] = np.array((0, 0.))
+                initial_genome[f'neurons_and_dropout{i}'] = np.array((0, 0))
 
         # Create a population of organisms all with the initial genome
         self.population = np.array([
@@ -211,11 +240,11 @@ class NNs(ns.Population):
             for _ in range(size)
             ])
 
-        # Mutate 80% of the genes in 80% of the population
+        # Mutate many genes in a large portion of the population
         rnd = np.random.random(self.population.shape)
         for (i, org) in enumerate(self.population):
             if rnd[i] < 0.80:
-                org.mutate(mutation_factor = .80)
+                org.mutate(mutation_factor = .50)
 
         # We do not have access to fitness values yet, so choose the 'fittest
         # organism' to just be a random one
@@ -262,6 +291,8 @@ class NNs(ns.Population):
 
         from tensorflow.keras.models import Model
         from tensorflow.keras.layers import Input, Dense, Dropout
+        from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten
+        from tensorflow.keras.layers import BatchNormalization
         from tensorflow.keras.optimizers import SGD, Adam, Nadam, RMSprop
         from tensorflow.keras.initializers import VarianceScaling
         from tensorflow.keras import backend as K
@@ -285,10 +316,7 @@ class NNs(ns.Population):
 
         X_train, Y_train, X_val, Y_val = self.train_val_sets
 
-        if self.nm_features == 'infer':
-            self.nm_features = X_val.shape[1]
-        if self.nm_labels == 'infer':
-            self.nm_labels = Y_val.shape[1]
+        self.nm_labels = Y_val.shape[1]
 
         if nn.hidden_activation == 'relu':
             # This initialisation is specific to ReLU to ensure that the
@@ -312,20 +340,48 @@ class NNs(ns.Population):
             # training deep feedforward neural networks"
             initializer = 'glorot_uniform'
 
-        inputs = Input(shape = (self.nm_features,))
+        inputs = Input(shape = X_train.shape[1:])
         x = inputs
     
-        if nn.input_dropout:
-            x = Dropout(nn.input_dropout)(x)
-
         if self.uniform_layers:
+            for _ in range(nn.nm_conv_layers):
+                if self.batch_norm:
+                    x = BatchNormalization()(x)
+                x = Conv2D(nn.filters, (nn.kernel, nn.kernel),
+                    padding = 'same', strides = (1, 1),
+                    kernel_initializer = initializer,
+                    activation = nn.hidden_activation)(x)
+                if nn.maxpool:
+                    x = MaxPooling2D()(x)
+
+            if len(x.shape) != 1:
+                x = Flatten()(x)
+
+            if nn.initial_dropout:
+                x = Dropout(nn.initial_dropout)(x)
+
             for _ in range(nn.nm_hidden_layers):
                 x = Dense(nn.neurons, activation = nn.hidden_activation,
                     kernel_initializer = initializer)(x)
                 if nn.dropout:
                     x = Dropout(nn.dropout)(x)
         else:
-            for i in range(self.max_nm_hidden_layers):
+            for i in range(self.max_nm_conv_layers):
+                (filters, kernel, maxpool) = nn.__dict__\
+                    ["filters_kernel_maxpool{}".format(i)].astype(int)
+                if filters:
+                    x = Conv2D(filters, (kernel, kernel), padding = 'same',
+                        strides = (1, 1), kernel_initializer = initializer,
+                        activation = nn.hidden_activation)(x)
+                    if self.batch_norm:
+                        x = BatchNormalization()(x)
+                    if maxpool:
+                        x = MaxPooling2D()(x)
+
+            if len(x.shape) != 1:
+                x = Flatten()(x)
+
+            for i in range(self.max_nm_dense_layers):
                 (neurons, dropout) = nn.__dict__\
                     ["neurons_and_dropout{}".format(i)]
                 if neurons:
@@ -396,8 +452,8 @@ class NNs(ns.Population):
                     show_outer = False, 
                     inner_position = ((worker_idx - 1) % self.workers) + 2,
                     leave_inner = False,
-                    #inner_description_update = desc + 'Epoch {epoch}',
-                    #inner_description_initial = desc + 'Epoch {epoch}'
+                    inner_description_update = desc + 'Epoch {epoch}',
+                    inner_description_initial = desc + 'Epoch {epoch}'
                     )
             else:
                 tqdm_callback = TQDMCallback(

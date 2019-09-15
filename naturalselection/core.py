@@ -277,7 +277,7 @@ class Population():
         breeding_rate = 0.8, mutation_rate = 0.2, mutation_factor = 'default', 
         elitism_rate = 0.05, multiprocessing = False, workers = mp.cpu_count(),
         progress_bars = 1, memory = 'inf', allow_repeats = True,
-        verbose = 0, pre_sample_fn = None):
+        verbose = 0, backend_fn = None):
 
         self.genus = genus
         self.size = size
@@ -291,7 +291,7 @@ class Population():
         self.progress_bars = progress_bars
         self.memory = memory
         self.allow_repeats = allow_repeats
-        self.pre_sample_fn = pre_sample_fn
+        self.backend_fn = backend_fn
         self.verbose = verbose
 
         if 'worker_idx' not in getfullargspec(fitness_fn).args:
@@ -489,8 +489,8 @@ class Population():
 
         # Convert fitness values into probabilities
         fitnesses = self.get_fitnesses()
-        if self.pre_sample_fn:
-            fitnesses = np.vectorize(self.pre_sample_fn)(fitnesses)
+        if self.backend_fn:
+            fitnesses = np.vectorize(self.backend_fn)(fitnesses)
         probs = np.divide(fitnesses, sum(fitnesses))
         
         # Copy the population to a new variable
@@ -578,6 +578,7 @@ class Population():
             # Update the fittest organism
             if max(fitnesses) > self.fittest.fitness:
                 self.fittest = self.population[np.argmax(fitnesses)]
+                self.fittest.fitness = max(fitnesses)
 
             self.logger.debug("Current population with fitness values:")
             self.logger.debug(np.array([(org.get_genome(), org.fitness)

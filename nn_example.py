@@ -1,15 +1,23 @@
 import naturalselection as ns
 
-def image_preprocessing(X, normalisation = 'normal'):
+def image_preprocessing(X, normalisation = 'normal', flatten = False):
     ''' Basic normalisation and scaling preprocessing. '''
     import numpy as np
-    X = X.reshape((-1, np.prod(X.shape[1:])))
+
+    if flatten:
+        X = X.reshape((-1, np.prod(X.shape[1:])))
+    if len(X.shape) == 3:
+        m, x, y = X.shape
+        X = X.reshape((m, x, y, 1))
+
     X = X.astype('float32')
+
     if normalisation == 'normal':
-        X = (X - X.mean(axis = 0)) / X.std(axis = 0)
+        X = (X - X.mean(axis = 0)) / (X.std(axis = 0) + 1e-8)
     elif normalisation == 'minmax':
         X = (X - X.min()) / (X.max() - X.min())
         X -= X.mean(axis = 0)
+
     return X
 
 def train_val_sets(kind = 'mnist'):
@@ -46,7 +54,7 @@ def evolve_nn(kind = 'mnist', pop_size = 30, gens = 30, max_epochs = 20,
         output_activation = 'softmax',
         size = pop_size,
         max_epochs = max_epochs,
-        max_epoch_time = max_epoch_time,
+        #max_epoch_time = max_epoch_time,
         verbose = verbose,
         )
 
@@ -71,7 +79,7 @@ if __name__ == '__main__':
     max_epochs = 10
     max_epoch_time = 90
     gens = 20
-    verbose = 1
+    verbose = 2
 
     if len(argv) > 1:
         for arg in argv[1:]:
