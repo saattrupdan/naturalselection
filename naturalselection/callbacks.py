@@ -168,6 +168,7 @@ class EarlierStopping(EarlyStopping):
 
     def on_train_begin(self, logs = {}):
         self.start_time = time.time()
+        self.best_weights = self.model.get_weights()
         super().on_train_begin(logs)
     
     def on_epoch_begin(self, epoch, logs = {}):
@@ -175,14 +176,19 @@ class EarlierStopping(EarlyStopping):
         super().on_epoch_begin(epoch, logs)
 
     def on_batch_end(self, batch, logs = {}):
+        loss = logs.get('loss')
+        if loss is not None:
+            if np.isnan(loss) or np.isinf(loss):
+                self.model.stop_training = True
+                if self.verbose:
+                    print("Encountered invalid loss. Stopping training.")
         tot_time = time.time() - self.start_time
         epoch_time = time.time() - self.epoch_start_time
         if (self.max_training_time and tot_time > self.max_training_time) \
             or (self.max_epoch_time and epoch_time > self.max_epoch_time):
             self.model.stop_training = True
             if self.verbose:
-                print('Stopping after {} seconds.'\
-                    .format(tot_time))
+                print('Stopping after {} seconds.'.format(tot_time))
         super().on_batch_end(batch, logs)
 
     def on_epoch_end(self, epoch, logs = {}):
@@ -192,8 +198,7 @@ class EarlierStopping(EarlyStopping):
             if self.restore_best_weights and self.best_weights:
                 self.model.set_weights(self.best_weights) 
             if self.verbose:
-                print('Stopping after {} seconds.'.\
-                    format(tot_time))
+                print('Stopping after {} seconds.'.format(tot_time))
 
         # Call earlystopping if we're beyond the first epoch
         if logs.get(self.monitor):

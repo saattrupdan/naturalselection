@@ -61,12 +61,12 @@ class NN(ns.Genus):
 class NNs(ns.Population):
     def __init__(self, 
         train_val_sets,
-        size = 30, 
+        size = 20, 
         initial_genome = {},
         breeding_rate = 0.8,
-        mutation_rate = 0.2,
+        mutation_rate = 0.3,
         mutation_factor = 'default',
-        elitism_rate = 0.05,
+        elitism_rate = 0.1,
         multiprocessing = True,
         workers = cpu_count(),
         progress_bars = 3,
@@ -74,9 +74,11 @@ class NNs(ns.Population):
         nm_features = 'infer', 
         nm_labels = 'infer',
         score = 'accuracy', 
+        pre_sample_fn = 'infer',
         output_activation = 'sigmoid',
-        max_epochs = 1000000, 
-        patience = 3, 
+        max_epochs = 10, 
+        patience = 0, 
+        baseline = 'infer',
         min_change = 1e-4,
         max_training_time = None, 
         max_epoch_time = None, 
@@ -85,12 +87,12 @@ class NNs(ns.Population):
         uniform_layers = False,
         dropout = np.array([0.1, 0.2, 0.3, 0.4, 0.5]),
         neurons = np.array([2 ** n for n in range(5, 11)]),
-        learning_rate = np.array([5, 2, 1, 5e-1, 2e-1, 1e-1, 5e-2, 2e-2, 1e-2, 
+        learning_rate = np.array([5e-1, 2e-1, 1e-1, 5e-2, 2e-2, 1e-2, 
                                   5e-3, 2e-3, 1e-3, 5e-4, 2e-4, 1e-4]),
         fst_moment = np.array([0.5, 0.8, 0.9, 0.95, 0.98, 0.99,
                              0.995, 0.998, 0.999]),
         snd_moment = np.array([0.5, 0.8, 0.9, 0.95, 0.98, 0.99, 
-                                  0.995, 0.998, 0.999]),
+                               0.995, 0.998, 0.999]),
         decay = np.array([5e-1, 2e-1, 1e-1, 5e-2, 2e-2, 1e-2,
                           5e-3, 2e-3, 1e-3, 5e-4, 2e-4, 1e-4,
                           5e-5, 2e-5, 1e-5, 5e-6, 2e-6, 1e-6]),
@@ -132,6 +134,20 @@ class NNs(ns.Population):
         self.decay                = decay
         self.nesterov             = nesterov
         self.batch_norm           = batch_norm
+        self.pre_sample_fn = pre_sample_fn
+        self.baseline             = baseline
+
+        if self.pre_sample_fn == 'infer':
+            zero_one_metrics = ['accuracy', 'categorical_accuracy',
+                                'sparse_categorical_accuracy',
+                                'top_k_categorical_accuracy',
+                                'sparse_top_k_categorical_accuracy'
+                                'f1', 'precision', 'recall']
+
+            if score in zero_one_metrics:
+                self.pre_sample_fn = lambda x: x ** 2
+            else:
+                self.pre_sample_fn = None
 
         logging.basicConfig(format = '%(levelname)s: %(message)s')
         self.logger = logging.getLogger()
@@ -179,11 +195,11 @@ class NNs(ns.Population):
         if not 'lr_and_decay' in initial_genome.keys():
             # Start with a large learning rate, following the advice in
             # Bengio's "Practical recommendations for gradient-based training
-            # of deep architectures". I start with second highest to allow 
-            # mutation options in both directions
-            penultimate_lr = np.partition(learning_rate, -2)[-2]
+            # of deep architectures". 
+            idx = int(learning_rate.size / 4)
+            large_lr = np.partition(learning_rate, -idx)[-idx]
             initial_genome = {
-                'lr_and_decay': np.array((penultimate_lr, 0.))
+                'lr_and_decay': np.array((large_lr, 0.)),
                 }
         for i in range(self.max_nm_hidden_layers):
             if not f'neurons_and_dropout{i}' in initial_genome.keys():
@@ -195,11 +211,11 @@ class NNs(ns.Population):
             for _ in range(size)
             ])
 
-        # Mutate 50% of the genes in 80% of the population
+        # Mutate 80% of the genes in 80% of the population
         rnd = np.random.random(self.population.shape)
         for (i, org) in enumerate(self.population):
             if rnd[i] < 0.80:
-                org.mutate(mutation_factor = .50)
+                org.mutate(mutation_factor = .80)
 
         # We do not have access to fitness values yet, so choose the 'fittest
         # organism' to just be a random one
@@ -211,17 +227,17 @@ class NNs(ns.Population):
 
         best_nn = self.fittest        
         fitness = self.train_nn(
-            nn                  = best_nn,
-            max_epochs          = max_epochs,
-            patience            = patience,
-            min_change          = min_change,
-            max_training_time   = max_training_time,
-            max_epoch_time      = max_epoch_time,
-            file_name           = file_name
+            nn                   = best_nn,
+            max_epochs           = max_epochs,
+            patience             = patience,
+            min_change           = min_change,
+            max_training_time    = max_training_time,
+            max_epoch_time       = max_epoch_time,
+            file_name            = file_name,
             )
         return fitness
 
-    def train_nn(self, nn, max_epochs = 1000000, patience = 3,
+    def train_nn(self, nn, max_epochs = 1000000, patience = 10,
         min_change = 1e-4, max_training_time = None, max_epoch_time = None,
         file_name = None, worker_idx = None):
         ''' Train a feedforward neural network and output the score.
@@ -229,7 +245,7 @@ class NNs(ns.Population):
         INPUT
             (NN) nn: a neural network genus
             (int) max_epochs = 1000000: maximum number of epochs to train for
-            (int) patience = 3: number of epochs allowed with no progress
+            (int) patience = 10: number of epochs allowed with no progress
                   above min_change
             (float) min_change = 1e-4: everything below this number will
                     not count as a change in the score
@@ -340,12 +356,21 @@ class NNs(ns.Population):
             optimizer = SGD(lr = learning_rate, decay = decay,
                 momentum = fst_moment, nesterov = nesterov)
 
-        if self.score == 'accuracy':
-            metrics = ['accuracy']        
-        elif self.score == 'categorical accuracy':
-            metrics = ['categorical accuracy']
+        keras_metrics = ['accuracy', 'categorical_accuracy',
+                         'sparse_categorical_accuracy',
+                         'top_k_categorical_accuracy',
+                         'sparse_top_k_categorical_accuracy']
+
+        if self.score in keras_metrics:
+            metrics = [self.score]
+            monitor = 'val_acc'
+            if self.baseline == 'infer':
+                self.baseline = 0.15
         else:
             metrics = []
+            monitor = 'val_loss'
+            if self.baseline == 'infer':
+                self.baseline = None
 
         model.compile(
             loss = self.loss_fn,
@@ -353,18 +378,14 @@ class NNs(ns.Population):
             metrics = metrics
             )
 
-        if self.score == 'accuracy' or self.score == 'categorical_accuracy':
-            monitor = 'val_acc'
-        else:
-            monitor = 'val_loss'
-
         earlier_stopping = EarlierStopping(
             monitor = monitor,
             patience = patience,
             min_delta = min_change,
             restore_best_weights = True,
             max_training_time = max_training_time,
-            max_epoch_time = max_epoch_time
+            max_epoch_time = max_epoch_time,
+            baseline = self.baseline
             )
 
         callbacks = [earlier_stopping]
@@ -375,8 +396,8 @@ class NNs(ns.Population):
                     show_outer = False, 
                     inner_position = ((worker_idx - 1) % self.workers) + 2,
                     leave_inner = False,
-                    inner_description_update = desc + 'Epoch {epoch}',
-                    inner_description_initial = desc + 'Epoch {epoch}'
+                    #inner_description_update = desc + 'Epoch {epoch}',
+                    #inner_description_initial = desc + 'Epoch {epoch}'
                     )
             else:
                 tqdm_callback = TQDMCallback(
@@ -404,7 +425,7 @@ class NNs(ns.Population):
             average = None
 
         Y_hat = model.predict(X_val, batch_size = 128)
-        if self.score == 'accuracy' or self.score == 'categorical accuracy':
+        if self.score in keras_metrics:
             fitness = model.evaluate(X_val, Y_val, verbose = 0)[1]
         elif self.score == 'f1':
             Y_hat = np.greater(Y_hat, 0.5)

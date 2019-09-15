@@ -34,21 +34,20 @@ def train_val_sets(kind = 'mnist'):
     Y_val = to_categorical(Y_val)
     return (X_train, Y_train, X_val, Y_val)
 
-def evolve_nn(kind = 'mnist', pop_size = 50, gens = 30, max_epochs = 10,
+def evolve_nn(kind = 'mnist', pop_size = 30, gens = 30, max_epochs = 20,
     max_epoch_time = 90, verbose = 0):
 
     print(f"\n~~~ Now evolving {kind} ~~~")
 
     nns = ns.NNs(
-        size = pop_size,
         train_val_sets = train_val_sets(kind),
         loss_fn = 'categorical_crossentropy',
         score = 'accuracy',
         output_activation = 'softmax',
+        size = pop_size,
         max_epochs = max_epochs,
         max_epoch_time = max_epoch_time,
-        patience = 0,
-        verbose = verbose
+        verbose = verbose,
         )
 
     history = nns.evolve(generations = gens)
@@ -68,10 +67,10 @@ def evolve_nn(kind = 'mnist', pop_size = 50, gens = 30, max_epochs = 10,
 if __name__ == '__main__':
     from sys import argv
 
-    pop_size = 50
-    gens = 30
+    pop_size = 30
     max_epochs = 10
     max_epoch_time = 90
+    gens = 20
     verbose = 1
 
     if len(argv) > 1:

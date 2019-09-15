@@ -207,27 +207,8 @@ class Organism():
                             result = False
                         return result
 
-                    for _ in range(10):
-                        cov = np.zeros((dim, dim))
-                        for i in range(dim):
-                            cov[i,i] = scales[i]
-                        rnd_idx = np.random.multivariate_normal(
-                            mean = gene_idx, 
-                            cov = cov
-                            )
-                        rnd_idx = np.around(rnd_idx, 0)
-                        rnd_idx = np.absolute(rnd_idx)
-                        for i in range(dim):
-                            rnd_idx[i] = np.minimum(rnd_idx[i], 
-                                len(gene_val_arr[i]) - 1)
-                        rnd_idx = rnd_idx.astype(int)
-
-                        rnd_val = np.empty(dim)
-                        for i in range(dim):
-                            rnd_val[i] = gene_val_arr[i][rnd_idx[i]]
-
                     rnd_idx = gene_idx
-                    while (np.array(rnd_idx) == np.array(gene_idx)).all() \
+                    while (np.asarray(rnd_idx) == np.asarray(gene_idx)).all() \
                         or not eligible(rnd_idx):
 
                         cov = np.zeros((dim, dim))
@@ -296,7 +277,7 @@ class Population():
         breeding_rate = 0.8, mutation_rate = 0.2, mutation_factor = 'default', 
         elitism_rate = 0.05, multiprocessing = False, workers = mp.cpu_count(),
         progress_bars = 1, memory = 'inf', allow_repeats = True,
-        verbose = 0):
+        verbose = 0, pre_sample_fn = None):
 
         self.genus = genus
         self.size = size
@@ -310,6 +291,7 @@ class Population():
         self.progress_bars = progress_bars
         self.memory = memory
         self.allow_repeats = allow_repeats
+        self.pre_sample_fn = pre_sample_fn
         self.verbose = verbose
 
         if 'worker_idx' not in getfullargspec(fitness_fn).args:
@@ -507,6 +489,8 @@ class Population():
 
         # Convert fitness values into probabilities
         fitnesses = self.get_fitnesses()
+        if self.pre_sample_fn:
+            fitnesses = np.vectorize(self.pre_sample_fn)(fitnesses)
         probs = np.divide(fitnesses, sum(fitnesses))
         
         # Copy the population to a new variable
