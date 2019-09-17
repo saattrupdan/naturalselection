@@ -4,7 +4,6 @@ import numpy as np
 from tensorflow.keras.callbacks import Callback, EarlyStopping
 from tqdm import tqdm
 
-
 class TQDMCallback(Callback):
     '''
     Callback to enable tqdm integration.
@@ -23,7 +22,8 @@ class TQDMCallback(Callback):
         output_file = None,
         outer_position = None,
         inner_position = None,
-        initial = 0):
+        initial = 0,
+        **kwargs):
 
         self.outer_description          = outer_description
         self.inner_description_initial  = inner_description_initial
@@ -150,7 +150,7 @@ class TQDMCallback(Callback):
 
 class EarlierStopping(EarlyStopping):
     '''
-    Callback to stop training when enough time has passed.
+    EarlyStopping but also to stop training when enough time has passed.
     Source: https://github.com/keras-team/keras-contrib/issues/87
 
     INPUT
@@ -159,29 +159,48 @@ class EarlierStopping(EarlyStopping):
         (int) verbose: verbosity mode.
     '''
     def __init__(self, max_training_time = None, max_epoch_time = None, 
+        monitor = 'val_loss', min_delta = 0, patience = 0, verbose = 0,
+        mode = 'auto', baseline = None, restore_best_weights = False, 
         **kwargs):
-        super().__init__(**kwargs)
+
+        super(EarlierStopping, self).__init__(monitor, min_delta, patience,
+            verbose, mode, baseline, restore_best_weights)
         self.start_time = 0
         self.epoch_start_time = 0
         self.max_training_time = max_training_time
         self.max_epoch_time = max_epoch_time
+        self.strikes = 0
 
     def on_train_begin(self, logs = {}):
         self.start_time = time.time()
         self.best_weights = self.model.get_weights()
-        super().on_train_begin(logs)
+        super(EarlierStopping, self).on_train_begin(logs)
     
     def on_epoch_begin(self, epoch, logs = {}):
         self.epoch_start_time = time.time()
-        super().on_epoch_begin(epoch, logs)
+        super(EarlierStopping, self).on_epoch_begin(epoch, logs)
 
     def on_batch_end(self, batch, logs = {}):
+
         loss = logs.get('loss')
-        if loss is not None:
+
+        # Stop training if NaN loss
+        if batch and not batch % 50 and loss:
             if np.isnan(loss) or np.isinf(loss):
                 self.model.stop_training = True
                 if self.verbose:
                     print("Encountered invalid loss. Stopping training.")
+
+        # Stop training time if training accuracy is below baseline
+        if self.baseline and logs.get('acc') and not batch % 50:
+            if logs.get('acc') < self.baseline:
+                self.strikes += 1
+                if self.strikes >= 10:
+                    self.model.stop_training = True
+                if self.verbose:
+                    print(f"Accuracy too low. Strike {self.strikes}.")
+                
+        # Stop training if max training time or max epoch time is reached
         tot_time = time.time() - self.start_time
         epoch_time = time.time() - self.epoch_start_time
         if (self.max_training_time and tot_time > self.max_training_time) \
@@ -189,7 +208,8 @@ class EarlierStopping(EarlyStopping):
             self.model.stop_training = True
             if self.verbose:
                 print('Stopping after {} seconds.'.format(tot_time))
-        super().on_batch_end(batch, logs)
+
+        super(EarlierStopping, self).on_batch_end(batch, logs)
 
     def on_epoch_end(self, epoch, logs = {}):
         tot_time = time.time() - self.start_time
@@ -202,4 +222,40 @@ class EarlierStopping(EarlyStopping):
 
         # Call earlystopping if we're beyond the first epoch
         if logs.get(self.monitor):
-            super().on_epoch_end(epoch, logs)
+            super(EarlierStopping, self).on_epoch_end(epoch, logs)
+
+
+class EarlyTQDM(TQDMCallback):
+    ''' Source: https://github.com/tqdm/tqdm/issues/562. '''
+
+    def __init__(self, max_epoch_time = None, max_strikes = 5,
+        batch_interval = 10, min_time = 10, **kwargs):
+        self.max_epoch_time = max_epoch_time
+        self.strikes = 0
+        self.max_strikes = max_strikes
+        self.batch_interval = batch_interval
+        self.min_time = min_time
+        super(EarlyTQDM, self).__init__(**kwargs)
+
+    def on_batch_end(self, batch, logs = {}):
+
+        super(EarlyTQDM, self).on_batch_end(batch, logs)
+
+        if batch and self.max_epoch_time:
+            bar = str(self.tqdm_inner)
+
+            elapsed = bar.split('[')[-1].split('<')[0].split(':')[::-1]
+            elapsed = sum(60 ** i * int(e)
+                for (i, e) in enumerate(elapsed))
+
+            remaining = bar.split('<')[-1].split(',')[0].split(':')[::-1]
+            remaining = sum(60 ** i * int(e)
+                for (i, e) in enumerate(remaining))
+
+            total = elapsed + remaining
+
+            if total > self.max_epoch_time and elapsed > self.min_time \
+                and not batch % self.batch_interval:
+                self.strikes += int(total / self.max_epoch_time)
+                if self.strikes >= self.max_strikes:
+                    self.model.stop_training = True

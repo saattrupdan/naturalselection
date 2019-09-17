@@ -54,7 +54,7 @@ def evolve_nn(kind = 'mnist', pop_size = 30, gens = 30, max_epochs = 20,
         output_activation = 'softmax',
         size = pop_size,
         max_epochs = max_epochs,
-        #max_epoch_time = max_epoch_time,
+        max_epoch_time = max_epoch_time,
         verbose = verbose,
         )
 
@@ -76,10 +76,10 @@ if __name__ == '__main__':
     from sys import argv
 
     pop_size = 30
-    max_epochs = 10
-    max_epoch_time = 90
+    max_epochs = 1
+    max_epoch_time = 300
     gens = 20
-    verbose = 2
+    verbose = 1
 
     if len(argv) > 1:
         for arg in argv[1:]:

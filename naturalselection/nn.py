@@ -22,7 +22,7 @@ class NN(ns.Genus):
     def __init__(self, max_nm_dense_layers, max_nm_conv_layers,
         uniform_layers, dropout, neurons, hidden_activation, batch_size,
         learning_rate, fst_moment, snd_moment, decay, nesterov,
-        filters, kernels, maxpool):
+        filters, kernel, stride, maxpool):
 
         self.hidden_activation = np.unique(np.asarray(hidden_activation))
         self.batch_size = np.unique(np.asarray(batch_size))
@@ -41,14 +41,16 @@ class NN(ns.Genus):
 
         neurons = np.unique(np.append(neurons, 0))
         dropouts = np.around(np.unique(np.append(dropout, 0)), 2)
-        filters = np.unique(np.unique(np.append(filters, 0)))
-        kernels = np.unique(np.unique(np.append(kernels, 3)))
-        maxpool = np.unique(np.unique(np.append(maxpool, 0)))
+        filters = np.unique(np.append(filters, 0))
+        kernel = np.unique(np.append(kernel, 3))
+        stride = np.unique(np.append(stride, 1))
+        maxpool = np.unique(np.append(maxpool, 0))
         if uniform_layers:
             self.neurons = neurons
             self.dropout = dropouts
             self.filters = filters
-            self.kernels = kernels
+            self.kernel = kernel
+            self.stride = stride 
             self.maxpool = maxpool
             self.nm_dense_layers = np.arange(0, max_nm_dense_layers + 1)
             self.nm_conv_layers = np.arange(0, max_nm_conv_layers + 1)
@@ -56,10 +58,10 @@ class NN(ns.Genus):
             layer_info = {}
 
             for i in range(max_nm_conv_layers):
-                layer_info[f'filters_kernel_maxpool{i}'] = np.array([
-                    (f, k, m) for (f, k, m) in product(filters, kernels, 
-                    maxpool) if not (f == 0 and (m != 0 or k != 3))
-                    ])
+                layer_info[f'filters{i}'] = filters
+                layer_info[f'kernel{i}'] = kernel
+                layer_info[f'stride{i}'] = stride
+                layer_info[f'maxpool{i}'] = maxpool
 
             for i in range(max_nm_dense_layers):
                 layer_info[f'neurons_and_dropout{i}'] = np.array([
@@ -92,14 +94,15 @@ class NNs(ns.Population):
         min_change = 1e-4,
         max_training_time = None, 
         max_epoch_time = None, 
-        max_nm_conv_layers = 5,
-        max_nm_dense_layers = 5,
+        max_nm_conv_layers = 'infer',
+        max_nm_layers = 5,
         batch_norm = True,
         uniform_layers = False,
         neurons = np.array([32, 64, 128, 256, 512, 1024]),
         dropout = np.array([0.1, 0.2, 0.3, 0.4, 0.5]),
-        filters = np.array([2, 4, 8, 16, 32, 64, 128]),
-        kernels = np.array([1, 3, 5, 7]),
+        filters = np.array([4, 8, 16, 32, 64, 128, 256]),
+        kernel = np.array([3]),
+        stride = np.array([1]),
         maxpool = np.array([0, 1]),
         learning_rate = np.array([5e-1, 2e-1, 1e-1, 5e-2, 2e-2, 1e-2, 
                                   5e-3, 2e-3, 1e-3, 5e-4, 2e-4, 1e-4]),
@@ -133,8 +136,6 @@ class NNs(ns.Population):
         self.min_change           = min_change
         self.max_training_time    = max_training_time
         self.max_epoch_time       = max_epoch_time
-        self.max_nm_dense_layers  = max_nm_dense_layers
-        self.max_nm_conv_layers   = max_nm_conv_layers
         self.uniform_layers       = uniform_layers
         self.dropout              = dropout
         self.neurons              = neurons
@@ -150,11 +151,20 @@ class NNs(ns.Population):
         self.backend_fn           = backend_fn
         self.baseline             = baseline
         self.filters              = filters
-        self.kernels              = kernels
+        self.kernel               = kernel
+        self.stride               = stride
         self.maxpool              = maxpool
 
-        if len(self.train_val_sets[0].shape) == 2:
-            self.max_nm_conv_layers = 0
+        if max_nm_conv_layers == 'infer':
+            if len(self.train_val_sets[0].shape) == 2:
+                self.max_nm_conv_layers = 0
+                self.max_nm_dense_layers = max_nm_layers
+            else:
+                self.max_nm_conv_layers = max_nm_layers - 1
+                self.max_nm_dense_layers = 1
+        else:
+            self.max_nm_conv_layers = max_nm_conv_layers
+            self.max_nm_dense_layers = max_nm_layers - max_nm_conv_layers
 
         if self.backend_fn == 'infer':
             zero_one_metrics = ['accuracy', 'categorical_accuracy',
@@ -191,7 +201,8 @@ class NNs(ns.Population):
             dropout              = self.dropout,
             neurons              = self.neurons,
             filters              = self.filters,
-            kernels              = self.kernels,
+            kernel               = self.kernel,
+            stride               = self.stride,
             maxpool              = self.maxpool,
             hidden_activation    = self.hidden_activation,
             batch_size           = self.batch_size,
@@ -226,13 +237,16 @@ class NNs(ns.Population):
                 }
 
         for i in range(self.max_nm_conv_layers):
-            if not f'filters_kernel_maxpool{i}' in initial_genome.keys():
-                initial_genome[f'filters_kernel_maxpool{i}'] = \
-                np.array((0, 3, 0))
+            if not f'filters{i}' in initial_genome.keys():
+                initial_genome[f'filters{i}'] = 0
+                initial_genome[f'stride{i}'] = 1
+                initial_genome[f'kernel{i}'] = 3
+                initial_genome[f'maxpool{i}'] = 0
 
         for i in range(self.max_nm_dense_layers):
-            if not f'neurons_and_dropout{i}' in initial_genome.keys():
-                initial_genome[f'neurons_and_dropout{i}'] = np.array((0, 0))
+            text = f'neurons_and_dropout{i}'
+            if not text in initial_genome.keys():
+                initial_genome[text] = np.array((0, 0))
 
         # Create a population of organisms all with the initial genome
         self.population = np.array([
@@ -301,7 +315,7 @@ class NNs(ns.Population):
         from sklearn.metrics import f1_score, precision_score, recall_score
 
         # Custom callbacks
-        from naturalselection.callbacks import TQDMCallback, EarlierStopping
+        from naturalselection.callbacks import EarlierStopping, EarlyTQDM
 
         # Used when building network
         from itertools import count
@@ -348,7 +362,7 @@ class NNs(ns.Population):
                 if self.batch_norm:
                     x = BatchNormalization()(x)
                 x = Conv2D(nn.filters, (nn.kernel, nn.kernel),
-                    padding = 'same', strides = (1, 1),
+                    padding = 'same', strides = (nn.stride, nn.stride),
                     kernel_initializer = initializer,
                     activation = nn.hidden_activation)(x)
                 if nn.maxpool:
@@ -367,11 +381,14 @@ class NNs(ns.Population):
                     x = Dropout(nn.dropout)(x)
         else:
             for i in range(self.max_nm_conv_layers):
-                (filters, kernel, maxpool) = nn.__dict__\
-                    ["filters_kernel_maxpool{}".format(i)].astype(int)
+                filters = nn.__dict__[f'filters{i}']
+                kernel = nn.__dict__[f'kernel{i}']
+                stride = nn.__dict__[f'stride{i}']
+                maxpool = nn.__dict__[f'maxpool{i}']
                 if filters:
                     x = Conv2D(filters, (kernel, kernel), padding = 'same',
-                        strides = (1, 1), kernel_initializer = initializer,
+                        strides = (stride, stride),
+                        kernel_initializer = initializer,
                         activation = nn.hidden_activation)(x)
                     if self.batch_norm:
                         x = BatchNormalization()(x)
@@ -441,26 +458,28 @@ class NNs(ns.Population):
             restore_best_weights = True,
             max_training_time = max_training_time,
             max_epoch_time = max_epoch_time,
-            baseline = self.baseline
+            baseline = self.baseline,
             )
 
         callbacks = [earlier_stopping]
         if self.progress_bars >= 3:
             if worker_idx:
                 desc = f'Worker {(worker_idx - 1) % self.workers}, '
-                tqdm_callback = TQDMCallback(
+                early_tqdm = EarlyTQDM(
                     show_outer = False, 
                     inner_position = ((worker_idx - 1) % self.workers) + 2,
                     leave_inner = False,
                     inner_description_update = desc + 'Epoch {epoch}',
-                    inner_description_initial = desc + 'Epoch {epoch}'
+                    inner_description_initial = desc + 'Epoch {epoch}',
+                    max_epoch_time = max_epoch_time,
                     )
             else:
-                tqdm_callback = TQDMCallback(
+                early_tqdm = EarlyTQDM(
                     show_outer = False, 
-                    inner_position = 0
+                    inner_position = 0,
+                    max_epoch_time = max_epoch_time,
                     )
-            callbacks.append(tqdm_callback)
+            callbacks.append(early_tqdm)
 
         model.fit(
             X_train,
