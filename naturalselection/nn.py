@@ -311,7 +311,7 @@ class NNs(ns.Population):
         from tensorflow.keras.initializers import VarianceScaling
         from tensorflow.keras import backend as K
         from tensorflow.python.util import deprecation
-        from tensorflow import set_random_seed
+        from tensorflow.compat.v1 import set_random_seed
         from sklearn.metrics import f1_score, precision_score, recall_score
 
         # Custom callbacks
@@ -427,7 +427,7 @@ class NNs(ns.Population):
                 rho = nn.snd_moment)
         else:
             optimizer = SGD(lr = learning_rate, decay = decay,
-                momentum = fst_moment, nesterov = nesterov)
+                momentum = fst_moment, nesterov = bool(nesterov))
 
         keras_metrics = ['accuracy', 'categorical_accuracy',
                          'sparse_categorical_accuracy',
