@@ -160,8 +160,8 @@ class NNs(ns.Population):
                 self.max_nm_conv_layers = 0
                 self.max_nm_dense_layers = max_nm_layers
             else:
-                self.max_nm_conv_layers = max_nm_layers - 1
-                self.max_nm_dense_layers = 1
+                self.max_nm_conv_layers = max_nm_layers
+                self.max_nm_dense_layers = 0
         else:
             self.max_nm_conv_layers = max_nm_conv_layers
             self.max_nm_dense_layers = max_nm_layers - max_nm_conv_layers
